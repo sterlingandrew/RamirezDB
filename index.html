@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page page-narrow">
+  <h1>Ramirez Lab sea turtle samples</h1>
+  <p class="lede">
+    The Ramirez Lab's archive of stranded sea turtle samples — measurements,
+    bone sections and age readings. Sign in to browse and edit records.
+  </p>
+
+  <form id="signin" class="card" novalidate>
+    <h2>Lab sign-in</h2>
+    <div class="field">
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="error" id="signin-error" hidden></p>
+    <button class="btn btn-primary" type="submit">Sign in</button>
+    <p class="note">
+      Accounts are created by a lab administrator. Ask the lab for access.
+    </p>
+  </form>
+</main>
+<script type="module" src="js/pages/index.js"></script>
+</body>
+</html>

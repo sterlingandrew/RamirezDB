@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Samples · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page">
+  <h1>Samples</h1>
+
+  <form id="filters" class="filters card">
+    <div class="field">
+      <label for="q">STSSN</label>
+      <input class="input" id="q" name="q" type="search" placeholder="Search">
+    </div>
+    <div class="field">
+      <label for="species">Species</label>
+      <select class="input" id="species" name="species">
+        <option value="">Any</option>
+        <option value="cc">Loggerhead</option>
+        <option value="cm">Green</option>
+        <option value="dc">Leatherback</option>
+        <option value="ei">Hawksbill</option>
+        <option value="lk">Kemp's ridley</option>
+        <option value="u">Unknown</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="from">Stranded from</label>
+      <input class="input" id="from" name="from" type="date">
+    </div>
+    <div class="field">
+      <label for="to">to</label>
+      <input class="input" id="to" name="to" type="date">
+    </div>
+    <div class="filters-actions">
+      <button class="btn btn-primary" type="submit">Apply</button>
+      <button class="btn btn-ghost" type="reset">Clear</button>
+    </div>
+  </form>
+
+  <p class="status" id="status" role="status">Loading…</p>
+
+  <table class="table" id="results" hidden>
+    <thead>
+      <tr>
+        <th>STSSN</th><th>Species</th><th>Stranded</th><th>Sex</th>
+        <th>State</th><th class="num">SCL</th><th class="num">Rings</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <nav class="pager" id="pager" hidden>
+    <button class="btn btn-ghost" data-page="prev" type="button">Previous</button>
+    <span id="pager-label"></span>
+    <button class="btn btn-ghost" data-page="next" type="button">Next</button>
+  </nav>
+</main>
+<script type="module" src="js/pages/samples.js"></script>
+</body>
+</html>

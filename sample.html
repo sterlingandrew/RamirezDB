@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page">
+  <p class="crumb"><a href="samples.html">← All samples</a></p>
+  <h1 id="title">Sample</h1>
+  <p class="status" id="status" role="status">Loading…</p>
+
+  <section class="card" id="core" hidden>
+    <h2>Stranding record</h2>
+    <dl class="pairs" id="core-pairs"></dl>
+  </section>
+
+  <section class="card" id="readings" hidden>
+    <h2>Age readings</h2>
+    <table class="table">
+      <thead><tr><th>Reader</th><th class="num">Rings</th><th class="num">Annulus</th><th>Note</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="extras" hidden>
+    <h2>Extra samples</h2>
+    <table class="table">
+      <thead><tr><th>Type</th><th>Location</th><th>Side</th><th>Processed</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="notes" hidden>
+    <h2>Notes</h2>
+    <ul class="notes"></ul>
+  </section>
+
+  <p class="row" id="actions" hidden>
+    <a class="btn btn-secondary" id="edit-link" href="#">Edit</a>
+  </p>
+</main>
+<script type="module" src="js/pages/sample.js"></script>
+</body>
+</html>
