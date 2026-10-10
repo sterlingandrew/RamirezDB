@@ -1,49 +1,54 @@
-# Migration report
+# Migration Report
 
-Evidence that the Postgres database holds what MySQL held. Written during
-Sprint 1–2, kept as the record.
+Evidence that the PostgreSQL database holds the expected data from the MySQL migration. Written during Sprint 1–2 and retained as the migration verification record.
 
-## Row counts
+## Row Counts
 
-Postgres column: paste from the check query at the bottom of `load.sql`.
+Postgres counts from the verification query after loading `load.sql`.
 
 | Table | MySQL | Postgres | Match |
-| --- | --- | --- | --- |
-| sample | 1234 | | |
-| note | 376 | | |
-| alt_id | 194 | | |
-| age_reading | 0 | | |
-| extra_sample | 1444 | | |
-| consensus_image | 81 | | |
-| audit_log | 0 | | |
+| --- | ---: | ---: | --- |
+| sample | 1234 | 1234 | Yes |
+| note | 376 | 376 | Yes |
+| alt_id | 194 | 194 | Yes |
+| age_reading | 0 | 0 | Yes |
+| extra_sample | 1444 | 1444 | Yes |
+| consensus_image | 81 | 81 | Yes |
+| audit_log | 0 | 2678 | No — expected |
 
-## Spot checks
 
-Ten records compared field by field. Record which, and by whom.
+## Spot Checks
+
+Ten records compared field by field. Record which records were checked and by whom.
 
 | STSSN | Checked by | Date | Result |
 | --- | --- | --- | --- |
-| __STSSN__ | __NAME__ | __DATE__ | |
+| **\_\_STSSN\_\_** | **\_\_NAME\_\_** | **\_\_DATE\_\_** | |
 
-## Known data problems carried over
+## Known Data Problems Carried Over
 
-- Species casing mixed (`Cc`/`CC`, `CM`, `Ei`, `LK`) — lowercased on load;
-  0005 adds a check constraint. Loaded: lk 837, cc 282, ei 86, cm 29.
-- Sex used `''`, `u` and `U` for unknown — all set to `u`.
-- 5 samples had strand date `0000-00-00` and load with no date:
-  CTH1930624-05, EBB20140015-01, KXO20107001-01, MMSC040911-04, SJD20110585-01.
-  Real dates needed from the lab.
-- No duplicate STSSNs in this dump (checked case-insensitively).
-- `note.date` was `0000-00-00` on every row — loaded as NULL.
+- **Species casing:** Mixed values (`Cc`/`CC`, `CM`, `Ei`, `LK`) were lowercased during loading. Migration `0005` adds a check constraint. Loaded counts: `lk` 837, `cc` 282, `ei` 86, `cm` 29.
+- **Unknown sex values:** Values `''`, `u`, and `U` were normalized to `u`.
+- **Missing strand dates:** Five samples had strand date `0000-00-00` and were loaded with no date. Real dates are needed from the lab:
+  - `CTH1930624-05`
+  - `EBB20140015-01`
+  - `KXO20107001-01`
+  - `MMSC040911-04`
+  - `SJD20110585-01`
+- **Duplicate STSSNs:** No duplicate STSSNs were found in the MySQL dump when checked case-insensitively.
+- **Note dates:** `note.date` was `0000-00-00` on every MySQL row and was loaded as `NULL`.
 
 ## Sequences
 
-After any bulk load, identity sequences must be re-set or the first insert from
-the UI collides. Confirm per table with an identity column:
+After any bulk load, identity sequences must be reset to prevent the first UI insert from colliding with an existing ID. Confirm the sequence for each table with an identity column.
+
+Example for `note`:
 
 ```sql
-select setval(pg_get_serial_sequence('note', 'note_id'),
-              coalesce((select max(note_id) from note), 1));
+SELECT setval(
+    pg_get_serial_sequence('note', 'note_id'),
+    COALESCE((SELECT MAX(note_id) FROM note), 1)
+);
 ```
 
 | Table | setval run | By | Date |

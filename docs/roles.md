@@ -1,44 +1,33 @@
 # Roles
 
-Who may do what. This is the document the lab signs off on, and the spec that
-`supabase/migrations/0003_rls_policies.sql` implements. If the two disagree,
-the policies are what is actually true — fix one or the other, don't leave them
-apart.
-
-Get the Admin / Personnel / User lists in writing from the lab (ADR-001 open
-question 3) before filling this in.
+Who may do what.
 
 ## People
 
 | Name | Email | Role | Confirmed by | Date |
 | --- | --- | --- | --- | --- |
-| __NAME__ | __EMAIL__ | admin | __PI__ | __DATE__ |
+| **\_\_NAME\_\_** | **\_\_EMAIL\_\_** | admin | **\_\_PI\_\_** | **\_\_DATE\_\_** |
 
 ## Permissions
 
 C = create, R = read, U = update, D = delete. Blank = denied.
 
-| Table | anon | user | personnel | admin |
-| --- | --- | --- | --- | --- |
-| sample | | R | CRU | CRUD |
-| note | | R | CRU | CRUD |
-| alt_id | | R | CRU | CRUD |
-| age_reading | | R | CRU | CRUD |
-| extra_sample | | R | CRU | CRUD |
-| consensus_image | | R | CRU | CRUD |
-| audit_log | | | | R |
-| profiles | | R | R | CRUD |
+| Table | guest/anon | user | admin |
+| --- | --- | --- | --- |
+| sample | R | CRU | CRUD |
+| note | R | CRU | CRUD |
+| alt_id | R | CRU | CRUD |
+| age_reading | R | CRU | CRUD |
+| extra_sample | R | CRU | CRUD |
+| consensus_image | R | CRU | CRUD |
+| audit_log | | R | R |
+| profiles | | R | CRUD |
 
-Notes:
+## Notes
 
-- `anon` has no access to any table. A public tier, if the lab wants one, is a
-  named view or rpc — never a table with a loosened policy.
-- Nobody can update or delete `audit_log`. There is no policy for those
-  operations, so Postgres denies them.
-- Nobody can change their own `role`, including admins acting on themselves.
-
-## Unresolved
-
-OPEN: may `user` see strand locations and nesting fields for protected
-species? ADR-001 open question 2. The select policies in 0003 assume yes;
-change them here and there together if the answer is no.
+- **Guest/Anon** has read-only access to a basic, public-facing view of lab data. Access to protected fields and full table data is not permitted. Public access should be implemented through named views or RPCs with explicitly approved fields, never by loosening table-level policies.
+- **User** can create, read, and update lab records but cannot delete records. Users cannot change their own role or grant themselves additional permissions.
+- **Admin** has full create, read, update, and delete permissions for lab data and can register new user accounts and manage user profiles and roles.
+- **Audit logs** are read-only. No role can update or delete existing audit log entries. Log creation should be handled through trusted database functions or backend operations, not direct client writes.
+- **Role management** is restricted to authorized admin operations. No one, including an admin, can change their own role through profile updates.
+- **Account registration** is an admin-only operation for creating new User accounts. Creating an account must not allow the requester to assign themselves admin privileges. Initial admin provisioning must be handled separately through a trusted process.
