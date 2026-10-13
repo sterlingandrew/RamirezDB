@@ -14,13 +14,14 @@ if (profile) {
     statusEl.textContent = 'No sample specified.';
   } else {
     // One request, embedded children — PostgREST resolves the foreign keys.
+    // age_reading.user_id → profiles.id (0002) lets readings carry the reader's name.
     const { data, error } = await supabase
       .from('sample')
       .select(`
         stssn, species, gamm_id, strand_date, strand_scl, strand_ccl, strand_scw,
         sex, state, decomposition, collaborator, processed_bone,
         rings_consensus, annulus_consensus, humerus_diameter,
-        age_reading ( user_id, rings, annulus, note ),
+        age_reading ( rings, annulus, note, profiles ( full_name ) ),
         extra_sample ( sample_type, location, side, processed ),
         note!for_sample ( note_id, note_type, contents, date )
       `)
@@ -56,7 +57,7 @@ if (profile) {
       show('core');
 
       fillRows('readings', data.age_reading,
-        (r) => [r.user_id, r.rings, num(r.annulus, 2), blank(r.note)]);
+        (r) => [r.profiles?.full_name || '—', r.rings, num(r.annulus, 2), blank(r.note)]);
       fillRows('extras', data.extra_sample,
         (r) => [r.sample_type, r.location, blank(r.side), r.processed]);
 
