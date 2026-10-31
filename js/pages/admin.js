@@ -46,16 +46,25 @@ if (profile) {
       save.type = 'button';
       save.textContent = 'Save role';
       save.disabled = select.disabled;
+      const saveError = document.createElement('p');
+      saveError.className = 'error';
+      saveError.hidden = true;
       save.addEventListener('click', async () => {
         save.disabled = true;
+        saveError.hidden = true;
         const { error: updateError } = await supabase
           .from('profiles')
           .update({ role: select.value })
           .eq('id', member.id);
-        save.textContent = updateError ? 'Failed' : 'Saved';
-        if (updateError) save.disabled = false;
+        save.textContent = updateError ? 'Save role' : 'Saved';
+        if (updateError) {
+          // The role guard in 0006 explains itself, e.g. "The last admin cannot be demoted."
+          saveError.textContent = updateError.message;
+          saveError.hidden = false;
+          save.disabled = false;
+        }
       });
-      actions.append(save);
+      actions.append(save, saveError);
 
       tr.append(name, email, roleCell, actions);
       return tr;

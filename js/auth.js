@@ -1,6 +1,9 @@
 import { supabase } from './supabase.js';
 
-export const ROLES = ['user', 'personnel', 'admin'];
+export const ROLES = ['pending', 'personnel', 'admin'];
+
+// Roles that can see lab data. `pending` has asked for access and sees none.
+export const MEMBERS = ['personnel', 'admin'];
 
 export async function currentSession() {
   const { data } = await supabase.auth.getSession();
@@ -31,14 +34,15 @@ export async function signOut() {
   location.href = 'index.html';
 }
 
-// Redirects signed-out visitors away, and signed-in visitors without one of
-// `allow` back to the samples list.
+// Redirects signed-out visitors to the landing page, pending accounts to
+// pending.html, and members without one of `allow` back to the samples list.
 //
 // This is convenience, not security. Hiding a page hides nothing — the policies
-// in supabase/migrations/0003_rls_policies.sql are the only real boundary.
-export async function requireRole(allow = ROLES) {
+// in supabase/migrations/0003 and 0006 are the only real boundary.
+export async function requireRole(allow = MEMBERS) {
   const profile = await currentProfile();
   if (!profile) { location.href = 'index.html'; return null; }
-  if (!allow.includes(profile.role)) { location.href = 'samples.html'; return null; }
-  return profile;
+  if (allow.includes(profile.role)) return profile;
+  location.href = MEMBERS.includes(profile.role) ? 'samples.html' : 'pending.html';
+  return null;
 }

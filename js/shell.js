@@ -1,7 +1,7 @@
-import { signOut } from './auth.js';
+import { signOut, MEMBERS } from './auth.js';
 
 const LINKS = [
-  { href: 'samples.html',    label: 'Samples',    roles: ['user', 'personnel', 'admin'] },
+  { href: 'samples.html',    label: 'Samples',    roles: ['personnel', 'admin'] },
   { href: 'new-sample.html', label: 'New sample', roles: ['personnel', 'admin'] },
   { href: 'admin.html',      label: 'Admin',      roles: ['admin'] },
 ];
@@ -16,7 +16,8 @@ export function renderShell(profile) {
 
   const brand = document.createElement('a');
   brand.className = 'nav-brand';
-  brand.href = profile ? 'samples.html' : 'index.html';
+  brand.href = !profile ? 'index.html'
+    : MEMBERS.includes(profile.role) ? 'samples.html' : 'pending.html';
   brand.textContent = 'RamirezDB';
   nav.append(brand);
 
