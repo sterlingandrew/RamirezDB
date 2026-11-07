@@ -5,6 +5,11 @@ export const ROLES = ['pending', 'personnel', 'admin'];
 // Roles that can see lab data. `pending` has asked for access and sees none.
 export const MEMBERS = ['personnel', 'admin'];
 
+// A page in the folder the site is served from, e.g.
+// https://sterlingandrew.github.io/RamirezDB/pending.html. Links in auth emails
+// must land under a URL in Supabase's redirect allow-list (docs/operations.md).
+export const siteUrl = (page) => new URL(page, location.href).href;
+
 export async function currentSession() {
   const { data } = await supabase.auth.getSession();
   return data.session ?? null;
@@ -17,15 +22,33 @@ export async function currentProfile() {
   if (!session) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, role')
+    .select('id, full_name, role, affiliation, reason, created_at')
     .eq('id', session.user.id)
     .single();
   if (error) return null;
   return { ...data, email: session.user.email };
 }
 
-export async function signIn(email, password) {
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+export async function signIn(email, password, captchaToken) {
+  const { error } = await supabase.auth.signInWithPassword({
+    email, password, options: { captchaToken },
+  });
+  if (error) throw error;
+}
+
+// Creates a pending account. handle_new_user() (0007) copies full_name,
+// affiliation and reason from this metadata into profiles. The role is never
+// taken from here.
+export async function requestAccess({ email, password, full_name, affiliation, reason }, captchaToken) {
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      captchaToken,
+      data: { full_name, affiliation, reason },
+      emailRedirectTo: siteUrl('pending.html'),
+    },
+  });
   if (error) throw error;
 }
 

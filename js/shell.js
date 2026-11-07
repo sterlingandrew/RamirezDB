@@ -1,4 +1,5 @@
 import { signOut, MEMBERS } from './auth.js';
+import { supabase } from './supabase.js';
 
 const LINKS = [
   { href: 'samples.html',    label: 'Samples',    roles: ['personnel', 'admin'] },
@@ -31,6 +32,13 @@ export function renderShell(profile) {
       a.href = link.href;
       a.textContent = link.label;
       if (link.href === here) a.setAttribute('aria-current', 'page');
+      if (link.href === 'admin.html') {
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.id = 'nav-requests-badge';
+        badge.hidden = true;
+        a.append(' ', badge);
+      }
       links.append(a);
     }
     const role = document.createElement('span');
@@ -48,4 +56,22 @@ export function renderShell(profile) {
 
   nav.append(links);
   host.replaceChildren(nav);
+  if (profile?.role === 'admin') refreshRequestBadge();
+}
+
+// Confirmed requests waiting on an admin. There's no email alert (that would
+// need an Edge Function, which ADR-001 rules out), so this badge is the alert.
+// Pass a count to skip the query when the caller already knows it.
+export async function refreshRequestBadge(count) {
+  const badge = document.getElementById('nav-requests-badge');
+  if (!badge) return;
+  if (count === undefined) {
+    const { data, error } = await supabase.rpc('list_requests');
+    if (error) return;
+    count = data.filter((r) => r.confirmed_at).length;
+  }
+  badge.textContent = String(count);
+  badge.title = `${count} access request${count === 1 ? '' : 's'} waiting`;
+  badge.setAttribute('aria-label', badge.title);
+  badge.hidden = count === 0;
 }

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose a new password · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page page-narrow">
+  <h1>Choose a new password</h1>
+  <p class="status" id="status" role="status">Checking your link…</p>
+
+  <form id="reset" class="card" novalidate hidden>
+    <div class="field">
+      <label for="password">New password</label>
+      <input class="input" id="password" name="password" type="password" autocomplete="new-password" required>
+      <span class="hint" id="password-hint"></span>
+    </div>
+    <div class="field">
+      <label for="confirm">Type it again</label>
+      <input class="input" id="confirm" name="confirm" type="password" autocomplete="new-password" required>
+    </div>
+    <p class="error" id="reset-error" role="alert" hidden></p>
+    <button class="btn btn-primary" type="submit">Save password</button>
+  </form>
+</main>
+<!-- Runs before the modules: the Supabase client may clear the hash while it reads it. -->
+<script>window.RESET_HASH = location.hash;</script>
+<script type="module" src="js/pages/reset.js"></script>
+</body>
+</html>
