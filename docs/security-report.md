@@ -38,7 +38,8 @@ operation the role should not be able to perform. Queries in
 | Admin reject deletes the auth user and profile, logged as `profiles REJECT` | Pass | 2026-11-07 |
 | Reject refuses a personnel or admin target, including yourself | Pass: P0002 "That request is no longer pending." | 2026-11-07 |
 | `list_requests` returns rows only for admins, with confirmation status | Pass: admin sees 2 (1 confirmed), pending sees 0 | 2026-11-07 |
-| End-to-end with a real outside email (request, confirm, pending page, approve, sign in; reject a second) | | |
+| End-to-end on the live site with a team-member address (request, confirm, pending page, approve, sign in; reject a second) | Pass: audit_log shows `profiles UPDATE` (approve) at 21:03 UTC and `profiles REJECT` at 21:04 UTC. The password hint listed only the missing rules | 2026-11-07 |
+| End-to-end with a real outside email | Deferred to handoff: Supabase's built-in sender only delivers to team members, so this waits for custom SMTP | |
 
 ## Findings
 
