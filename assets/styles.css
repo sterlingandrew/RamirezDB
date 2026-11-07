@@ -69,6 +69,8 @@ a:hover { color: var(--ink); }
 .btn-secondary:hover { background: color-mix(in oklch, var(--accent) 12%, transparent); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--accent-ink); }
 .btn-ghost:hover { background: color-mix(in oklch, var(--accent) 10%, transparent); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.btn-danger:hover { background: color-mix(in oklch, var(--danger) 80%, black); color: #fff; }
 .btn:disabled { opacity: .45; cursor: default; }
 
 .table { width: 100%; border-collapse: collapse; background: var(--surface);
@@ -90,3 +92,14 @@ a:hover { color: var(--ink); }
 .pager { display: flex; gap: var(--space-3); align-items: center;
   margin-top: var(--space-4); }
 .status { color: var(--ink-muted); }
+
+/* count badge — Requests heading and the Admin nav link */
+.badge { display: inline-block; min-width: 1.6em; padding: 0 6px;
+  border-radius: 999px; background: var(--danger); color: #fff;
+  font-size: 12px; font-weight: 600; line-height: 1.6; text-align: center;
+  vertical-align: middle; }
+.badge[hidden] { display: none; }
+
+.prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+.captcha:not(:empty) { margin: 0 0 var(--space-4); }
+textarea.input { resize: vertical; }

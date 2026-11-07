@@ -28,10 +28,22 @@ operation the role should not be able to perform. Queries in
 | Leaked-password protection and minimum length on | Fail: finding 2 | 2026-10-31 |
 | Allowed origins restricted to the Pages domain | | |
 
+## Registration (0007, Day 3)
+
+| Check | Result | Date |
+| --- | --- | --- |
+| A sign-up creates a `pending` profile with name, affiliation and reason copied from metadata (trimmed, blanks become null) | Pass (SQL, rolled back) | 2026-11-07 |
+| pending and anon cannot call `approve_request` / `reject_request` | Pass: 42501 | 2026-11-07 |
+| Admin approve: pending → personnel, logged as `profiles UPDATE` by the admin | Pass | 2026-11-07 |
+| Admin reject deletes the auth user and profile, logged as `profiles REJECT` | Pass | 2026-11-07 |
+| Reject refuses a personnel or admin target, including yourself | Pass: P0002 "That request is no longer pending." | 2026-11-07 |
+| `list_requests` returns rows only for admins, with confirmation status | Pass: admin sees 2 (1 confirmed), pending sees 0 | 2026-11-07 |
+| End-to-end with a real outside email (request, confirm, pending page, approve, sign in; reject a second) | | |
+
 ## Findings
 
 | # | Severity | Finding | Fix | Retested |
 | --- | --- | --- | --- | --- |
-| 1 | Low | All 10 `security definer` functions in `public` can be called by `anon` and `authenticated` through `/rest/v1/rpc`. The trigger functions refuse a direct call, and `is_admin` / `is_member` / `can_write` / `auth_role` only describe the caller | `revoke execute ... from anon, authenticated` on the trigger functions and `rls_auto_enable`, and revoke the helpers from `anon`, in the next migration | |
+| 1 | Low | All 10 `security definer` functions in `public` can be called by `anon` and `authenticated` through `/rest/v1/rpc`. The trigger functions refuse a direct call, and `is_admin` / `is_member` / `can_write` / `auth_role` only describe the caller | `revoke execute ... from anon, authenticated` on the trigger functions and `rls_auto_enable`, and revoke the helpers from `anon`, in the next migration | Fixed in 0007. 2026-11-07: anon gets 42501 calling `is_admin` and `approve_request`, and authenticated gets 42501 calling `handle_new_user`. The advisor still lists `is_admin`, `is_member`, `can_write`, `auth_role`, `approve_request`, `reject_request` and `list_requests` as callable when signed in. That's intended: the policies need the helpers, and the three rpcs check `is_admin()` themselves |
 | 2 | Medium | Leaked-password protection is off. That matters more now that registration is open | Dashboard → Authentication → Providers → Email: enable leaked-password protection and set a minimum length | |
-| 3 | Low | `profiles_select` and `profiles_update_self` call `auth.uid()` once per row, and profiles has two permissive UPDATE policies | Wrap the call as `(select auth.uid())`. Negligible at lab scale | |
+| 3 | Low | `profiles_select` and `profiles_update_self` call `auth.uid()` once per row, and profiles has two permissive UPDATE policies | Wrap the call as `(select auth.uid())`. Negligible at lab scale | Fixed in 0007 (2026-11-07). The `auth_rls_initplan` notice is gone. Two permissive UPDATE policies remain, kept for readability |
