@@ -61,12 +61,14 @@ number. Policies are SQL in this repo, never clicked into the dashboard.
 | --- | --- |
 | `*.html` | one file per screen, published from the root of `main` |
 | `assets/styles.css` | the one stylesheet; design tokens at the top |
-| `js/config.js` | project URL + publishable key |
+| `js/config.js` | project URL, publishable key, Turnstile site key, minimum password length |
 | `js/supabase.js` | the single shared client |
-| `js/auth.js` | session, sign-in/out, role lookup, page guard |
+| `js/auth.js` | session, sign-in/out, request access, role lookup, page guard |
+| `js/captcha.js` | Cloudflare Turnstile widget for sign-in, request access and reset |
 | `js/shell.js` | header and role-aware nav |
 | `js/pages/*.js` | one module per screen |
 | `supabase/migrations/` | schema, roles, policies, triggers |
+| `supabase/templates/` | auth email templates, pasted into the dashboard |
 | `docs/` | role matrix, operations runbook, security report |
 
 `.nojekyll` is required: without it Pages runs the tree through Jekyll, which

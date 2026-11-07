@@ -11,6 +11,19 @@
 <main class="page">
   <h1>Administration</h1>
 
+  <section class="card" id="requests-section">
+    <h2>Requests <span class="badge" id="requests-count" hidden></span></h2>
+    <p class="hint">
+      People who confirmed their email and are waiting for access. Approve makes
+      them personnel. Reject deletes the account. Nobody is emailed either way.
+    </p>
+    <p class="status" id="requests-status" role="status">Loading…</p>
+    <table class="table" id="requests" hidden>
+      <thead><tr><th>Name</th><th>Affiliation</th><th>Reason</th><th>Requested</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
   <section class="card">
     <h2>Members</h2>
     <p class="hint">Roles are set here and nowhere else. A member cannot change their own role.</p>

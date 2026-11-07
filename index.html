@@ -25,12 +25,22 @@
       <label for="password">Password</label>
       <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
     </div>
-    <p class="error" id="signin-error" hidden></p>
-    <button class="btn btn-primary" type="submit">Sign in</button>
-    <p class="note">
-      Accounts are approved by a lab administrator.
-    </p>
+    <div class="captcha" id="captcha"></div>
+    <p class="error" id="signin-error" role="alert" hidden></p>
+    <div class="row">
+      <button class="btn btn-primary" type="submit">Sign in</button>
+      <a href="forgot.html">Forgot your password?</a>
+    </div>
   </form>
+
+  <section class="card">
+    <h2>Not in the lab yet?</h2>
+    <p>
+      Collaborators can ask for an account. A lab administrator reviews each
+      request, and you won't see any records until it's approved.
+    </p>
+    <a class="btn btn-secondary" href="request-access.html">Request access</a>
+  </section>
 </main>
 <script type="module" src="js/pages/index.js"></script>
 </body>

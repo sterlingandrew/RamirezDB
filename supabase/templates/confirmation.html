@@ -1,0 +1,26 @@
+<!--
+  Supabase → Authentication → Emails → Templates → "Confirm signup".
+  Subject:  Confirm your request to the Ramirez Lab
+  Paste everything below this comment into the Body (source) box.
+  {{ .Data.full_name }} is the name they typed on request-access.html.
+-->
+<h2>Your request has been sent to the Ramirez Lab.</h2>
+
+<p>Hello {{ .Data.full_name }},</p>
+
+<p>
+  Thanks for asking for access to the Ramirez Lab sea turtle sample archive.
+  Please confirm this is your email address so we can pass your request on:
+</p>
+
+<p><a href="{{ .ConfirmationURL }}">Confirm my email address</a></p>
+
+<p>
+  Once you've confirmed, a lab administrator will review your request. We
+  don't send a second email when it's approved, so sign in again in a few days
+  to check. Until then your account can't see any records.
+</p>
+
+<p>If you didn't ask for an account, you can ignore this email and nothing will happen.</p>
+
+<p>— The Ramirez Lab</p>

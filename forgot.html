@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgot password · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page page-narrow">
+  <p class="crumb"><a href="index.html">← Sign in</a></p>
+  <h1>Forgot your password?</h1>
+  <p class="lede">Enter your email and we'll send you a link to choose a new one.</p>
+
+  <form id="forgot" class="card" novalidate>
+    <div class="field">
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" autocomplete="username" required>
+    </div>
+    <div class="captcha" id="captcha"></div>
+    <p class="error" id="forgot-error" role="alert" hidden></p>
+    <button class="btn btn-primary" type="submit">Send reset link</button>
+  </form>
+
+  <section class="card" id="sent" hidden>
+    <h2>Check your email</h2>
+    <p>
+      If <strong id="sent-email"></strong> has an account, a reset link is on
+      its way. It works once and expires after an hour.
+    </p>
+  </section>
+</main>
+<script type="module" src="js/pages/forgot.js"></script>
+</body>
+</html>
