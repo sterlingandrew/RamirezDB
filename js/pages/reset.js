@@ -4,7 +4,7 @@
 import { supabase } from '../supabase.js';
 import { currentSession, MEMBERS, currentProfile } from '../auth.js';
 import { renderShell } from '../shell.js';
-import { MIN_PASSWORD } from '../config.js';
+import { attachPasswordHint, passwordMessage, weakPasswordMessage } from '../password.js';
 
 renderShell(null);
 
@@ -25,8 +25,7 @@ if (hash.get('error') || !session) {
 } else {
   statusEl.hidden = true;
   form.hidden = false;
-  form.password.minLength = MIN_PASSWORD;
-  document.getElementById('password-hint').textContent = `At least ${MIN_PASSWORD} characters.`;
+  attachPasswordHint(form.password, document.getElementById('password-hint'));
 }
 
 form.addEventListener('submit', async (event) => {
@@ -35,7 +34,8 @@ form.addEventListener('submit', async (event) => {
   const password = form.password.value;
   const fail = (message) => { errorEl.textContent = message; errorEl.hidden = false; };
 
-  if (password.length < MIN_PASSWORD) return fail(`Your password needs at least ${MIN_PASSWORD} characters.`);
+  const passwordError = passwordMessage(password);
+  if (passwordError) return fail(passwordError);
   if (password !== form.confirm.value) return fail('The two passwords don\'t match.');
 
   const button = form.querySelector('button[type="submit"]');
@@ -44,7 +44,7 @@ form.addEventListener('submit', async (event) => {
   if (error) {
     button.disabled = false;
     return fail(error.code === 'weak_password'
-      ? 'Please choose a different password: ' + error.message
+      ? weakPasswordMessage(error, password)
       : 'Your password could not be saved. ' + error.message);
   }
 

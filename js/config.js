@@ -8,7 +8,8 @@ export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_hBM0ATamd8lJpue_l00svQ_t
 export const TURNSTILE_SITE_KEY = '';
 
 // Minimum password length. Must match Supabase → Authentication → Providers →
-// Email → Minimum password length.
+// Email → Minimum password length. The character rules (lowercase, uppercase,
+// number, symbol) live in js/password.js and must match "Password requirements".
 export const MIN_PASSWORD = 10;
 
 // Page size for list views.

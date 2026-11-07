@@ -114,13 +114,14 @@ something about sign-up or sign-in breaks, check these first.
 
 | Setting | Where (Authentication → …) | Value | Set on |
 | --- | --- | --- | --- |
-| Allow new users to sign up | Sign In / Providers → User Signups | On | __DATE__ |
-| Confirm email | Sign In / Providers → Email | On | __DATE__ |
-| Minimum password length | Sign In / Providers → Email | 10 (must match `MIN_PASSWORD` in `js/config.js`) | __DATE__ |
-| Leaked-password protection | Sign In / Providers → Email | On (Pro plan only; if the project is on Free, note "unavailable" here) | __DATE__ |
+| Allow new users to sign up | Sign In / Providers → User Signups | On | 2026-11-07 |
+| Confirm email | Sign In / Providers → Email | On | 2026-11-07 |
+| Minimum password length | Sign In / Providers → Email | 10 (must match `MIN_PASSWORD` in `js/config.js`) | 2026-11-07 |
+| Password requirements | Sign In / Providers → Email | Lowercase, uppercase, digits and symbols (checked in the browser by `js/password.js`; change both together) | 2026-11-07 |
+| Leaked-password protection | Sign In / Providers → Email | Off: Pro plan only. The security advisor still flags it (2026-11-07). Turn it on if the lab upgrades | 2026-11-07 |
 | CAPTCHA | Attack Protection | On, provider Cloudflare Turnstile, secret key from Cloudflare | __DATE__ |
-| Site URL | URL Configuration | `https://sterlingandrew.github.io/RamirezDB/` | __DATE__ |
-| Redirect URLs | URL Configuration | `https://sterlingandrew.github.io/RamirezDB/**` only | __DATE__ |
+| Site URL | URL Configuration | `https://sterlingandrew.github.io/RamirezDB/` | 2026-11-07 |
+| Redirect URLs | URL Configuration | `https://sterlingandrew.github.io/RamirezDB/**` only | 2026-11-07 |
 | Confirm signup email | Emails → Templates | Subject and body from `supabase/templates/confirmation.html` | __DATE__ |
 | SMTP | Emails → SMTP Settings | __SMTP_PROVIDER__ (sender `__SENDER__`) | __DATE__ |
 
