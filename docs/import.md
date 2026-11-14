@@ -51,6 +51,42 @@ headers follow the lab's inventory sheets (`stssn.id`, `strand.SCL`,
 - **Unknown is `u`** for species and sex (`unknown` is also accepted). Use
   `unknown` in `humerus sampled`.
 
+## Automatic fixes
+
+The page repairs common problems itself and shows every repair in green in
+the preview, with a list under **Automatic fixes**. Nothing is fixed silently.
+
+STSSN repairs come from the lab's ID tool (`IDdaterV2.py`, A. Horstkamp, 2024):
+
+| In the file | Saved as | Fix |
+| --- | --- | --- |
+| `ABC990612-01` | `ABC19990612-01` | Two-digit year expanded: 0–2 → 20xx, 3–9 → 19xx |
+| `ABC240103_01` | `ABC20240103-01` | Underscores → dashes |
+| `abc 240103-01` | `ABC20240103-01` | Spaces removed, initials uppercased |
+| `*ABC-SPECIAL-01` | `ABC-SPECIAL-01` | A leading `*` means "keep exactly as written" |
+
+Differences from the Python tool, all on the safe side:
+
+- A year is only expanded when the ID has exactly a six-digit date and the
+  result is a real date. (The script inserted `20`/`19` by position, so an ID
+  that already had a four-digit year became `ABC2020240612-01`.)
+- Spaces are only removed when that leaves a well-formed STSSN. (The script
+  turned `ABC20010518 RIGHT` into `ABC20010518RIGHT`.) Otherwise the space is
+  reported as an error.
+- A `*` ID still can't contain spaces, brackets or `?`, but the format,
+  suffix and network-ID checks become warnings for it.
+
+Other fixes:
+
+- **Strand date from the STSSN.** With "Fill blank strand dates from the
+  STSSN" ticked (the default), a blank `strand.date` is filled from the date
+  in the ID (`ABC20240612-01` → 2024-06-12). A filled-in date that disagrees
+  with the ID is always a warning. Untick it when updating existing samples
+  if the stored dates should be left alone.
+- Species and sex names become codes (`Kemp's ridley` → `lk`, `Female` → `f`).
+- State is uppercased; `FL(FG)` / `FL(FA)` become `FL` (warning).
+- Dates in `6/12/2024` form become `2024-06-12`.
+
 ## Columns
 
 Headers are matched ignoring case, spaces and punctuation, so `strand.SCL`,

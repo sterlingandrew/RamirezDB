@@ -202,28 +202,102 @@ function parseNumber(raw, { min, max, integer }) {
 
 // Check one cell. Returns { value } with the normalised value ('' = blank,
 // not sent), and optionally { error } or { warning }.
+// A well-formed STSSN: 2–4 initials, the stranding date as YYYYMMDD, and a
+// 2–3 digit sequence number.
+export const STSSN_RE = /^[A-Z]{2,4}(\d{4})(\d{2})(\d{2})-\d{2,3}$/;
+
+// Automatic STSSN repairs, ported from the lab's IDdaterV2.py (A. Horstkamp,
+// 2024):
+//   * a leading * marks an exception: the * is dropped and nothing is changed
+//   * underscores become dashes
+//   * a two-digit year is expanded: ABC990612-01 -> ABC19990612-01, with
+//     0–2 -> 20xx and 3–9 -> 19xx as in the original
+// and, beyond the original:
+//   * spaces are removed, but only when that leaves a well-formed STSSN
+//     (the original removed every space, turning "… RIGHT" into "…RIGHT")
+//   * lowercase initials are uppercased
+// Unlike the original, which inserted the century by character position, a
+// year is expanded only when the ID has exactly a six-digit date and the
+// result is a real date, so ABC20240612-01 is never turned into
+// ABC2020240612-01.
+// Returns { value, fixes: [message], exception }.
+export function fixStssn(raw, today = new Date()) {
+  let v = String(raw ?? '').trim();
+  if (v.startsWith('*')) return { value: v.slice(1).trim(), fixes: [], exception: true };
+  const fixes = [];
+
+  if (v.includes('_')) {
+    v = v.replace(/_/g, '-');
+    fixes.push('underscores → dashes');
+  }
+  const expand = (id) => {
+    const m = id.match(/^([A-Z]{2,4})(\d{2})(\d{2})(\d{2})(-\d{2,3})?$/);
+    if (!m) return null;
+    const century = Number(m[2][0]) <= 2 ? '20' : '19';
+    const iso = parseDate(`${century}${m[2]}-${m[3]}-${m[4]}`, today);
+    if (iso.error) return null;
+    return { id: `${m[1]}${century}${m[2]}${m[3]}${m[4]}${m[5] ?? ''}`, yy: m[2], year: century + m[2] };
+  };
+  if (/\s/.test(v)) {
+    const squeezed = v.replace(/\s+/g, '');
+    const up = squeezed.replace(/^[a-z]{2,4}(?=\d)/, (c) => c.toUpperCase());
+    if (STSSN_RE.test(up) || STSSN_RE.test(expand(up)?.id ?? '')) {
+      v = squeezed;
+      fixes.push('spaces removed');
+    }
+  }
+  const upInitials = v.replace(/^[a-z]{2,4}(?=\d)/, (s) => s.toUpperCase());
+  if (upInitials !== v) {
+    v = upInitials;
+    fixes.push('initials uppercased');
+  }
+  const ex = expand(v);
+  if (ex) {
+    v = ex.id;
+    fixes.push(`two-digit year ${ex.yy} → ${ex.year}`);
+  }
+  return { value: v, fixes, exception: false };
+}
+
+// The stranding date written in a well-formed STSSN, as ISO, or null.
+export function dateFromStssn(id, today = new Date()) {
+  const m = String(id).match(STSSN_RE);
+  if (!m) return null;
+  const r = parseDate(`${m[1]}-${m[2]}-${m[3]}`, today);
+  return r.error ? null : r.value;
+}
+
 export function checkCell(key, rawIn, today) {
   const raw = String(rawIn ?? '').trim();
 
   if (key === 'stssn') {
     if (!raw) return { value: '', error: 'STSSN is required.' };
-    if (raw.length > MAX_LEN.stssn) return { value: raw, error: `Longer than ${MAX_LEN.stssn} characters.` };
-    if (/[\s()?]/.test(raw)) {
-      return { value: raw, error: 'Spaces, brackets or "?" in the ID. Put only the STSSN here: a side goes in "humerus sampled", anything else in your notes.' };
+    const { value: id, fixes, exception } = fixStssn(raw, today);
+    const fixed = fixes.length ? `Fixed: ${fixes.join(', ')}.` : undefined;
+    const out = (extra) => ({ value: id, ...(fixed && { fixed }), ...extra });
+    // A *-marked exception still can't break the database, but the format
+    // rules below become warnings: the lab has said it's deliberate.
+    const strict = (message) => out(exception
+      ? { warning: `Kept as marked with *: ${message}` }
+      : { error: message });
+
+    if (id.length > MAX_LEN.stssn) return out({ error: `Longer than ${MAX_LEN.stssn} characters.` });
+    if (/[\s()?]/.test(id)) {
+      return out({ error: 'Spaces, brackets or "?" in the ID. Put only the STSSN here: a side goes in "humerus sampled", anything else in your notes.' });
     }
-    if (/(-restained|-?left|-?right|\d[LR])$/i.test(raw)) {
-      return { value: raw, error: 'The ID has a suffix (a side or "restained"). Remove it and put the side in "humerus sampled".' };
+    if (/(-restained|-?left|-?right|\d[LR])$/i.test(id)) {
+      return strict('The ID has a suffix (a side or "restained"). Remove it and put the side in "humerus sampled".');
     }
-    if (ALT_ID_SHAPES.some((re) => re.test(raw))) {
-      return { value: raw, error: 'This looks like a stranding-network ID (VAQS…, ST2015-…), not an STSSN. Use the turtle\'s STSSN; network IDs are kept as alternate IDs.' };
+    if (ALT_ID_SHAPES.some((re) => re.test(id))) {
+      return strict('This looks like a stranding-network ID (VAQS…, ST2015-…), not an STSSN. Use the turtle\'s STSSN; network IDs are kept as alternate IDs.');
     }
-    if (/^XXX/i.test(raw)) {
-      return { value: raw, warning: 'Placeholder initials (XXX). Fine if that is the real STSSN.' };
+    if (/^XXX/i.test(id)) {
+      return out({ warning: 'Placeholder initials (XXX). Fine if that is the real STSSN.' });
     }
-    if (!/^[A-Za-z]{2,4}\d{8}-\d{2,3}$/.test(raw)) {
-      return { value: raw, warning: 'Unusual STSSN format (expected e.g. ABC20240612-01).' };
+    if (!STSSN_RE.test(id)) {
+      return out(exception ? {} : { warning: 'Unusual STSSN format (expected e.g. ABC20240612-01). Mark it with a leading * if it is deliberate.' });
     }
-    return { value: raw };
+    return out({});
   }
   if (raw === '') {
     if (key === 'strand_date') return { value: '', warning: 'No strand date.' };
@@ -265,7 +339,9 @@ export function checkCell(key, rawIn, today) {
 // data row is spreadsheet row 2. Returns
 //   { rows: [{ row, cells: {key: {raw, value, error?, warning?}} }],
 //     errorCount, warningCount, fatal: [message] }
-export function checkRows(headers, records, today = new Date(), firstRow = 2) {
+// options.fillDates: fill a blank strand.date from the date in the STSSN.
+export function checkRows(headers, records, today = new Date(), firstRow = 2, options = {}) {
+  const { fillDates = true } = options;
   const { map, ignored, fatal } = mapHeaders(headers);
   const keys = map.filter(Boolean);
   const rows = [];
@@ -280,6 +356,23 @@ export function checkRows(headers, records, today = new Date(), firstRow = 2) {
       });
       rows.push(row);
     });
+
+    // The STSSN carries the stranding date. Fill blank dates from it (if
+    // asked), and flag a date that disagrees with it.
+    let filled = 0;
+    for (const row of rows) {
+      const id = row.cells.stssn;
+      const fromId = id && !id.error ? dateFromStssn(id.value, today) : null;
+      if (!fromId) continue;
+      const sd = row.cells.strand_date;
+      if (sd && sd.value && !sd.error) {
+        if (sd.value !== fromId) sd.warning = `Differs from the date in the STSSN (${fromId}).`;
+      } else if (fillDates && (!sd || sd.value === '')) {
+        row.cells.strand_date = { raw: sd?.raw ?? '', value: fromId, fixed: 'Filled from the date in the STSSN.' };
+        filled++;
+      }
+    }
+    if (filled && !keys.includes('strand_date')) keys.splice(Math.min(3, keys.length), 0, 'strand_date');
 
     // Duplicate STSSNs within the file: flag every copy.
     const byId = new Map();
@@ -306,20 +399,26 @@ export function checkRows(headers, records, today = new Date(), firstRow = 2) {
 
   let errorCount = 0;
   let warningCount = 0;
+  let fixCount = 0;
   for (const row of rows) {
     for (const cell of Object.values(row.cells)) {
       if (cell.error) errorCount++;
       else if (cell.warning) warningCount++;
+      if (cell.fixed) fixCount++;
     }
   }
   // File-level warnings: things missing from every row at once.
   const notices = [];
+  const undated = rows.filter((r) => !r.cells.strand_date?.value).length;
+  if (!fatal.length && keys.includes('strand_date') && undated && fillDates) {
+    notices.push(`${undated} row${undated === 1 ? ' has' : 's have'} no strand date, even from the STSSN.`);
+  }
   if (!fatal.length && !keys.includes('strand_date')) {
     notices.push(keys.length && ignored.some((i) => /^strand\W*(year|mo)/i.test(i.header))
       ? 'No strand.date column: strand.year and strand.mo are not imported, so new samples will have no strand date. Add a strand.date column with full dates where they are known.'
       : 'No strand.date column: new samples will have no strand date.');
   }
-  return { keys, ignored, rows, errorCount, warningCount, fatal, notices };
+  return { keys, ignored, rows, errorCount, warningCount, fixCount, fatal, notices };
 }
 
 // What import_samples() receives: non-blank values only, plus the row number.

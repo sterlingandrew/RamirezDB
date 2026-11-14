@@ -19,6 +19,7 @@ const PREVIEW_CLEAN_ROWS = 50;
 function main() {
   const fileInput = document.getElementById('file');
   const updateBox = document.getElementById('update-existing');
+  const fillBox = document.getElementById('fill-dates');
   const dryBtn = document.getElementById('dry-run');
   const commitBtn = document.getElementById('commit');
   const statusEl = document.getElementById('status');
@@ -31,6 +32,7 @@ function main() {
   const table = document.getElementById('preview');
 
   let checked = null;       // result of checkRows for the current file
+  let parsedFile = null;    // { headers, records, firstRow }, to re-check on option changes
   let fileName = null;
   let dryRunPassed = false; // a clean dry run for this file + checkbox state
 
@@ -39,6 +41,11 @@ function main() {
     // A dry run without "update existing" says nothing about one with it.
     dryRunPassed = false;
     if (checked) render(checked, []);
+  });
+  fillBox.addEventListener('change', () => {
+    if (!parsedFile) return;
+    dryRunPassed = false;
+    recheck();
   });
   dryBtn.addEventListener('click', () => send(true));
   commitBtn.addEventListener('click', () => send(false));
@@ -72,13 +79,20 @@ function main() {
     // stay those of the spreadsheet.
     const h = findHeaderRow(parsed.data);
     const [headers, ...records] = parsed.data.slice(h);
-    checked = checkRows(headers, records, new Date(), h + 2);
+    parsedFile = { headers, records, firstRow: h + 2 };
+    recheck();
+  }
+
+  function recheck() {
+    const { headers, records, firstRow } = parsedFile;
+    checked = checkRows(headers, records, new Date(), firstRow, { fillDates: fillBox.checked });
     if (checked.fatal.length) return showFatal(checked.fatal);
     render(checked, []);
   }
 
   function reset() {
     checked = null;
+    parsedFile = null;
     fileName = null;
     dryRunPassed = false;
     fatalEl.hidden = true;
@@ -102,7 +116,7 @@ function main() {
 
   // serverErrors: [{row, stssn, column, message}] from import_samples().
   function render(result, serverErrors) {
-    const { keys, ignored, rows, errorCount, warningCount } = result;
+    const { keys, ignored, rows, errorCount, warningCount, fixCount } = result;
     const byRow = new Map();
     for (const e of serverErrors) {
       if (!byRow.has(e.row)) byRow.set(e.row, []);
@@ -145,6 +159,22 @@ function main() {
       `${totalErrors} error${totalErrors === 1 ? '' : 's'}, ${warningCount} warning${warningCount === 1 ? '' : 's'}`;
     errorSection.hidden = items.length === 0;
 
+    // Automatic fixes, listed separately so they don't bury the errors.
+    const fixes = [];
+    for (const row of rows) {
+      for (const [key, cell] of Object.entries(row.cells)) {
+        if (cell.fixed) fixes.push(`Row ${row.row}, ${labelOf(key)}: ${cell.raw ? `"${cell.raw}" → ` : ''}${cell.value}. ${cell.fixed}`);
+      }
+    }
+    document.getElementById('fixes-summary').textContent =
+      `${fixCount} automatic fix${fixCount === 1 ? '' : 'es'} (shown in green in the preview)`;
+    document.getElementById('fixes').replaceChildren(...fixes.map((t) => {
+      const li = document.createElement('li');
+      li.textContent = t;
+      return li;
+    }));
+    document.getElementById('fixes-section').hidden = fixes.length === 0;
+
     // Preview table: every row with a problem, plus the first clean ones.
     const thead = document.createElement('tr');
     for (const label of ['Row', ...keys.map(labelOf)]) {
@@ -159,7 +189,7 @@ function main() {
     for (const row of rows) {
       const rowServer = byRow.get(row.row) ?? [];
       const hasProblem = rowServer.length > 0
-        || Object.values(row.cells).some((c) => c.error || c.warning);
+        || Object.entries(row.cells).some(([k, c]) => c.error || c.warning || (c.fixed && k === 'stssn'));
       if (!hasProblem && clean++ >= PREVIEW_CLEAN_ROWS) continue;
 
       const tr = document.createElement('tr');
@@ -168,14 +198,15 @@ function main() {
       if (rowServer.some((e) => !e.column)) num.className = 'cell-bad';
       tr.append(num);
       for (const key of keys) {
-        const cell = row.cells[key];
+        const cell = row.cells[key] ?? { raw: '', value: '' };
         const td = document.createElement('td');
         td.textContent = cell.value !== cell.raw.trim() && !cell.error
-          ? `${cell.raw} → ${cell.value}` : cell.raw;
+          ? (cell.raw.trim() ? `${cell.raw} → ${cell.value}` : `→ ${cell.value}`) : cell.raw;
         const server = rowServer.find((e) => e.column === key);
         const problem = cell.error || server?.message;
         if (problem) { td.className = 'cell-bad'; td.title = problem; }
         else if (cell.warning) { td.className = 'cell-warn'; td.title = cell.warning; }
+        else if (cell.fixed) { td.className = 'cell-fixed'; td.title = cell.fixed; }
         tr.append(td);
       }
       trs.push(tr);
@@ -201,6 +232,7 @@ function main() {
     commitBtn.disabled = true;
     fileInput.disabled = true;
     updateBox.disabled = true;
+    fillBox.disabled = true;
     resultEl.hidden = true;
     statusEl.textContent = dryRun ? 'Dry run…' : 'Importing…';
 
@@ -211,6 +243,7 @@ function main() {
     if (altErrors === null) {
       fileInput.disabled = false;
       updateBox.disabled = false;
+      fillBox.disabled = false;
       dryBtn.disabled = false;
       statusEl.textContent = 'Could not check alternate IDs. Try again.';
       return;
@@ -218,6 +251,7 @@ function main() {
     if (altErrors.length) {
       fileInput.disabled = false;
       updateBox.disabled = false;
+      fillBox.disabled = false;
       dryRunPassed = false;
       render(checked, altErrors);
       statusEl.textContent = `${altErrors.length} ID${altErrors.length === 1 ? ' is' : 's are'} an alternate ID of another sample. Nothing was saved.`;
@@ -233,6 +267,7 @@ function main() {
 
     fileInput.disabled = false;
     updateBox.disabled = false;
+    fillBox.disabled = false;
 
     if (error) {
       dryRunPassed = false;

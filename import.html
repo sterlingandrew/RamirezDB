@@ -40,6 +40,17 @@
       </p>
     </div>
 
+    <div class="field">
+      <label class="check">
+        <input type="checkbox" id="fill-dates" checked>
+        Fill blank strand dates from the STSSN
+      </label>
+      <p class="hint">
+        An STSSN contains the stranding date (ABC<strong>20240612</strong>-01). Filled dates are
+        shown in green. A strand date that disagrees with its STSSN is always flagged.
+      </p>
+    </div>
+
     <div class="error" id="fatal" role="alert" hidden></div>
     <p class="hint" id="summary"></p>
     <p class="status" id="status" role="status"></p>
@@ -54,6 +65,18 @@
   <section class="card" id="errors-section" hidden>
     <h2 id="errors-heading">Problems</h2>
     <ul class="problems" id="errors"></ul>
+  </section>
+
+  <section class="card" id="fixes-section" hidden>
+    <details>
+      <summary id="fixes-summary">Automatic fixes</summary>
+      <p class="hint">
+        STSSN repairs come from the lab's ID tool: two-digit years become four
+        (ABC990612-01 → ABC19990612-01), underscores become dashes, stray spaces
+        go. Start an ID with * to keep it exactly as written.
+      </p>
+      <ul class="problems" id="fixes"></ul>
+    </details>
   </section>
 
   <section class="card" id="preview-section" hidden>
