@@ -41,6 +41,21 @@ operation the role should not be able to perform. Queries in
 | End-to-end on the live site with a team-member address (request, confirm, pending page, approve, sign in; reject a second) | Pass: audit_log shows `profiles UPDATE` (approve) at 21:03 UTC and `profiles REJECT` at 21:04 UTC. The password hint listed only the missing rules | 2026-11-07 |
 | End-to-end with a real outside email | Deferred to handoff: Supabase's built-in sender only delivers to team members, so this waits for custom SMTP | |
 
+## CSV import (0008, Day 4)
+
+| Check | Result | Date |
+| --- | --- | --- |
+| `import_samples` is `security invoker`; anon cannot execute it; `import_batch_id` is executable by no API role | Pass: `has_function_privilege` false for anon (both) and authenticated (`import_batch_id`) | 2026-11-14 |
+| A non-member cannot import, dry run included | Pass (SQL, impersonating a uuid with no profile): 42501 RLS on the batch note insert, before any sample is touched | 2026-11-14 |
+| All-or-nothing: one bad row rolls back the whole import and every bad row is reported | Pass: 10-row mixed file returned 9 errors (existing STSSN, in-file duplicate, bad species, bad sex, non-number, unknown column, blank STSSN, too long, Feb 30), `committed: false` | 2026-11-14 |
+| Every row of a committed import, and the batch note update, carry the batch id in `audit_log.change_note` | Pass (rolled back): 2 `INSERT` rows on batch 447, `UPDATE` on batch 448 | 2026-11-14 |
+| Existing STSSN rejected unless `update_existing`; an update with a blank cell leaves the stored value | Pass | 2026-11-14 |
+| 1000-row dry run within the API statement timeout | Pass: about 0.5 s | 2026-11-14 |
+| Import page end to end (local server, signed in as admin) with the test files | Pass: `1-clean.csv` shows 6 rows, 4 automatic fixes in green (underscore and two-digit year, spaces/case/two-digit year, two dates filled from the STSSN), the `*` exception kept as written, 1 warning (`FL(FG)` → FL); confirmed on the page. Same payload through `import_samples` as a dry run (SQL, as admin): 6 would be added. `2-existing.csv`: the SQL dry run rejects the existing STSSN on row 4. `3-errors.csv`: 15 errors from the browser rules (Node). The 2-existing and 3-errors files were not yet run on the page | 2026-11-14 |
+| STSSN auto-fixes (port of the lab's IDdaterV2.py) never corrupt a well-formed ID | Pass (Node): matches the script on legacy IDs; unlike it, leaves `ABC20240612-01` unchanged (the script gives `ABC2020240612-01`), won't glue `… RIGHT` onto the ID, and won't expand an impossible date (month 13) | 2026-11-14 |
+| A pending account on the live site cannot import (redirected from import.html; rpc refused) | Pass: signed in as a pending account, import.html redirects to the pending page and there is no Import link. The rpc refusal is covered by the SQL check above (42501) | 2026-11-14 |
+| Lab's real sheet dry-runs clean, or with every problem listed | Pass (browser rules, run in Node; not yet on the page): LK_Inventory (Kemp's ridley, 806 rows) exported as CSV UTF-8. Without a species column the file is refused; with one, every problem is listed with its row: 147 errors (130 network IDs in stssn.id, 11 IDs with spaces/brackets/?, 2 side or "restained" suffixes, 2 duplicate pairs) and 88 warnings, 652 strand dates filled from the STSSN, and 16 lab columns listed as not imported with the reason. 636 of its 804 IDs already exist, so the database dry run would also reject those unless "Update existing samples" is ticked | 2026-11-14 |
+
 ## Findings
 
 | # | Severity | Finding | Fix | Retested |

@@ -107,6 +107,25 @@ For someone you already know, skipping the request form:
 Admin page → Members → set their role to `pending` → Save role. They'll see the
 pending page from then on. Their past edits keep their name.
 
+## Importing the backlog
+
+Personnel import spreadsheets themselves from the **Import** page. The full
+guide, with the accepted column headers, is [import.md](import.md). In short:
+
+1. Save the sheet from Excel as **CSV UTF-8 (Comma delimited)**, at most 1000
+   rows per file.
+2. Import page → choose the file → fix anything listed, in the spreadsheet →
+   **Dry run** → **Import**.
+3. Write the batch number it reports in the import log (date, who, file, rows,
+   batch #), kept at __IMPORT_LOG_LOCATION__.
+
+**Anything confusing or broken during an import is a bug report.** Note the
+file, the row and the exact message, and send it to __MAINTAINER__. These are
+collected and fixed before handoff.
+
+To undo a bad import, an admin follows "Finding and undoing a batch" in
+[import.md](import.md).
+
 ## Auth settings
 
 Set in the Supabase dashboard, not in the repo, so they're listed here. If
