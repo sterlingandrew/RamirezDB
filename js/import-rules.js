@@ -7,23 +7,25 @@
 
 import { SPECIES, SEX } from './format.js';
 
-// The template's headers, in order. Also the label shown for each column.
+// The template's headers, in order. They follow the lab's own inventory
+// sheets (LK_Inventory.xlsx: stssn.id, strand.SCL, humerus sampled), so a
+// sheet already in that style needs no renaming.
 export const COLUMNS = [
-  { key: 'stssn',             label: 'STSSN' },
-  { key: 'species',           label: 'Species' },
-  { key: 'sex',               label: 'Sex' },
-  { key: 'strand_date',       label: 'Strand date' },
-  { key: 'state',             label: 'State' },
-  { key: 'strand_scl',        label: 'SCL (cm)' },
-  { key: 'strand_ccl',        label: 'CCL (cm)' },
-  { key: 'strand_scw',        label: 'SCW (cm)' },
-  { key: 'decomposition',     label: 'Decomposition' },
-  { key: 'collaborator',      label: 'Collaborator' },
-  { key: 'gamm_id',           label: 'GAMM ID' },
-  { key: 'processed_bone',    label: 'Processed bone' },
-  { key: 'rings_consensus',   label: 'Rings (consensus)' },
-  { key: 'annulus_consensus', label: 'Annulus (consensus)' },
-  { key: 'humerus_diameter',  label: 'Humerus diameter' },
+  { key: 'stssn',             label: 'stssn.id' },
+  { key: 'species',           label: 'species' },
+  { key: 'sex',               label: 'sex' },
+  { key: 'strand_date',       label: 'strand.date' },
+  { key: 'state',             label: 'state' },
+  { key: 'strand_scl',        label: 'strand.SCL' },
+  { key: 'strand_ccl',        label: 'strand.CCL' },
+  { key: 'strand_scw',        label: 'strand.SCW' },
+  { key: 'decomposition',     label: 'decomposition' },
+  { key: 'collaborator',      label: 'collaborator' },
+  { key: 'gamm_id',           label: 'gamm.id' },
+  { key: 'processed_bone',    label: 'humerus sampled' },
+  { key: 'rings_consensus',   label: 'rings.consensus' },
+  { key: 'annulus_consensus', label: 'annulus.consensus' },
+  { key: 'humerus_diameter',  label: 'humerus.diameter' },
 ];
 
 // Header spellings accepted for each column, compared after normalising
@@ -45,13 +47,37 @@ const ALIASES = {
                       'conditioncode'],
   collaborator:      ['collaborator', 'collaborators', 'collector'],
   gamm_id:           ['gammid', 'gamm', 'gammnumber', 'gammno'],
-  processed_bone:    ['processedbone', 'bone', 'boneprocessed', 'humerusside', 'side'],
+  processed_bone:    ['processedbone', 'humerussampled', 'boneprocessed', 'humerusside', 'side'],
   rings_consensus:   ['ringsconsensus', 'rings', 'consensusrings', 'lags', 'lagsconsensus'],
   annulus_consensus: ['annulusconsensus', 'annulus', 'consensusannulus'],
   humerus_diameter:  ['humerusdiameter', 'humerusdiam', 'hd', 'humerusdiametermm'],
 };
 
 export const normHeader = (h) => String(h ?? '').replace(/^﻿/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// Columns the lab's inventory sheets have that this importer does not read,
+// and where that information lives instead. Listed by name on the page, so
+// nobody assumes it was saved.
+export const NOT_IMPORTED = {
+  boneid:              'lab bone number, no database column',
+  otherid:             'alternate IDs (alt_id table), not imported yet',
+  strandyear:          'use strand.date (a full date) instead',
+  strandmo:            'use strand.date (a full date) instead',
+  boneends:            'sample locations (extra_sample table), not imported yet',
+  skeletosection:      'sample locations (extra_sample table), not imported yet',
+  siasection:          'sample locations (extra_sample table), not imported yet',
+  muscle:              'sample locations (extra_sample table), not imported yet',
+  epidermis:           'sample locations (extra_sample table), not imported yet',
+  barnacle:            'sample locations (extra_sample table), not imported yet',
+  otherspecify:        'sample locations (extra_sample table), not imported yet',
+  wholebone:           'sample locations (extra_sample table), not imported yet',
+  extrawholebone:      'sample locations (extra_sample table), not imported yet',
+  notes:               'notes (note table), not imported yet',
+  enteredby:           'recorded automatically: the signed-in importer',
+  initialentrydate:    'recorded automatically in the audit log',
+  modifiedon:          'recorded automatically in the audit log',
+  consensusimagefound: 'images are linked separately (Day 5)',
+};
 
 const HEADER_TO_KEY = new Map();
 for (const [key, list] of Object.entries(ALIASES)) {
@@ -76,6 +102,11 @@ export const RANGES = {
 };
 
 const MAX_LEN = { stssn: 25, collaborator: 255 };
+
+// Network IDs that turn up in the stssn.id column of the lab's sheets but are
+// alternate IDs in the database: VAQS / VASC / VDGIF / DMF + year + number,
+// ST + year (+ -number), or a bare number. A real STSSN starts with initials.
+const ALT_ID_SHAPES = [/^VAQS\d/i, /^VASC\d/i, /^VDGIF\d/i, /^ST\d{4}/i, /^DMF\d/i, /^\d/];
 export const MAX_ROWS = 1000; // must match max_rows in import_samples()
 const EARLIEST_YEAR = 1950;
 
@@ -95,6 +126,15 @@ for (const [code, label] of Object.entries(SEX)) {
 
 // Map the file's headers to columns. Returns
 //   { map: [key|null per header], ignored: [header], fatal: [message] }
+// Index of the header row: the first of the top 10 rows with an STSSN
+// column. Lab sheets often have a title or group banner above the headers.
+export function findHeaderRow(table) {
+  for (let i = 0; i < Math.min(10, table.length); i++) {
+    if (table[i].some((h) => HEADER_TO_KEY.get(normHeader(h)) === 'stssn')) return i;
+  }
+  return 0;
+}
+
 export function mapHeaders(headers) {
   const map = [];
   const ignored = [];
@@ -103,7 +143,9 @@ export function mapHeaders(headers) {
   headers.forEach((h, i) => {
     const key = HEADER_TO_KEY.get(normHeader(h)) ?? null;
     if (key === null) {
-      if (normHeader(h) !== '') ignored.push(h);
+      if (normHeader(h) !== '') {
+        ignored.push({ header: h, why: NOT_IMPORTED[normHeader(h)] ?? 'not a database column' });
+      }
       map.push(null);
       return;
     }
@@ -116,7 +158,12 @@ export function mapHeaders(headers) {
     map.push(key);
   });
   if (!firstAt.has('stssn')) {
-    fatal.push('No STSSN column. The first row must hold the column headers, one of them "STSSN".');
+    fatal.push('No stssn.id column. The first row must hold the column headers, one of them "stssn.id".');
+  }
+  // Inventory sheets are one species per file and often leave the column
+  // out. Without it every new sample would be saved as unknown species.
+  if (firstAt.size && !firstAt.has('species')) {
+    fatal.push('No species column. Add a "species" column (e.g. lk on every row of a Kemp\'s ridley sheet).');
   }
   return { map, ignored, fatal };
 }
@@ -161,6 +208,18 @@ export function checkCell(key, rawIn, today) {
   if (key === 'stssn') {
     if (!raw) return { value: '', error: 'STSSN is required.' };
     if (raw.length > MAX_LEN.stssn) return { value: raw, error: `Longer than ${MAX_LEN.stssn} characters.` };
+    if (/[\s()?]/.test(raw)) {
+      return { value: raw, error: 'Spaces, brackets or "?" in the ID. Put only the STSSN here: a side goes in "humerus sampled", anything else in your notes.' };
+    }
+    if (/(-restained|-?left|-?right|\d[LR])$/i.test(raw)) {
+      return { value: raw, error: 'The ID has a suffix (a side or "restained"). Remove it and put the side in "humerus sampled".' };
+    }
+    if (ALT_ID_SHAPES.some((re) => re.test(raw))) {
+      return { value: raw, error: 'This looks like a stranding-network ID (VAQS…, ST2015-…), not an STSSN. Use the turtle\'s STSSN; network IDs are kept as alternate IDs.' };
+    }
+    if (/^XXX/i.test(raw)) {
+      return { value: raw, warning: 'Placeholder initials (XXX). Fine if that is the real STSSN.' };
+    }
     if (!/^[A-Za-z]{2,4}\d{8}-\d{2,3}$/.test(raw)) {
       return { value: raw, warning: 'Unusual STSSN format (expected e.g. ABC20240612-01).' };
     }
@@ -168,6 +227,7 @@ export function checkCell(key, rawIn, today) {
   }
   if (raw === '') {
     if (key === 'strand_date') return { value: '', warning: 'No strand date.' };
+    if (key === 'species') return { value: '', warning: 'No species: a new sample is saved as u (unknown).' };
     return { value: '' };
   }
   if (key === 'species') {
@@ -185,6 +245,10 @@ export function checkCell(key, rawIn, today) {
   }
   if (key === 'state') {
     const v = raw.toUpperCase();
+    // FL(FG) / FL(FA), Florida Gulf or Atlantic coast. There is one state
+    // column, so the qualifier is dropped, with a warning.
+    const coast = v.match(/^([A-Z]{2})\s*\((.+)\)$/);
+    if (coast) return { value: coast[1], warning: `Saved as ${coast[1]}; the "(${coast[2]})" qualifier isn't stored.` };
     return /^[A-Z]{1,2}$/.test(v) ? { value: v } : { value: raw, error: 'Use the two-letter state code, e.g. FL.' };
   }
   if (key in RANGES) {
@@ -201,14 +265,14 @@ export function checkCell(key, rawIn, today) {
 // data row is spreadsheet row 2. Returns
 //   { rows: [{ row, cells: {key: {raw, value, error?, warning?}} }],
 //     errorCount, warningCount, fatal: [message] }
-export function checkRows(headers, records, today = new Date()) {
+export function checkRows(headers, records, today = new Date(), firstRow = 2) {
   const { map, ignored, fatal } = mapHeaders(headers);
   const keys = map.filter(Boolean);
   const rows = [];
 
   if (!fatal.length) {
     records.forEach((cells, i) => {
-      const row = { row: i + 2, cells: {} };
+      const row = { row: i + firstRow, cells: {} };
       map.forEach((key, c) => {
         if (!key) return;
         const raw = cells[c] ?? '';
@@ -248,7 +312,14 @@ export function checkRows(headers, records, today = new Date()) {
       else if (cell.warning) warningCount++;
     }
   }
-  return { keys, ignored, rows, errorCount, warningCount, fatal };
+  // File-level warnings: things missing from every row at once.
+  const notices = [];
+  if (!fatal.length && !keys.includes('strand_date')) {
+    notices.push(keys.length && ignored.some((i) => /^strand\W*(year|mo)/i.test(i.header))
+      ? 'No strand.date column: strand.year and strand.mo are not imported, so new samples will have no strand date. Add a strand.date column with full dates where they are known.'
+      : 'No strand.date column: new samples will have no strand date.');
+  }
+  return { keys, ignored, rows, errorCount, warningCount, fatal, notices };
 }
 
 // What import_samples() receives: non-blank values only, plus the row number.

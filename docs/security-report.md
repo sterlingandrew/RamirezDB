@@ -52,7 +52,7 @@ operation the role should not be able to perform. Queries in
 | Existing STSSN rejected unless `update_existing`; an update with a blank cell leaves the stored value | Pass | 2026-11-14 |
 | 1000-row dry run within the API statement timeout | Pass: about 0.5 s | 2026-11-14 |
 | A pending account on the live site cannot import (redirected from import.html; rpc refused) | | |
-| Lab's real sheet dry-runs clean, or with every problem listed | | |
+| Lab's real sheet dry-runs clean, or with every problem listed | Browser checks pass (Node, LK_Inventory exported as CSV UTF-8): without a species column the file is refused; with one, 806 rows give 147 errors and 88 warnings, each with its row, and 16 columns listed as not imported with the reason. The database dry run on the live page is still to do | 2026-11-14 (partial) |
 
 ## Findings
 

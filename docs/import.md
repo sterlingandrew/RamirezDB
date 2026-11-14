@@ -9,8 +9,8 @@ removed as a unit.
 
 1. Start from [`assets/import-template.csv`](../assets/import-template.csv) (the
    **template** link on the Import page), or use your own sheet if its headers
-   appear in the table below. Columns the importer doesn't recognise are
-   listed as "Ignored" and nothing is read from them.
+   appear in the table below. Columns the importer doesn't read are listed as
+   "Not imported", with the reason.
 2. In Excel: **File → Save As → CSV UTF-8 (Comma delimited) (\*.csv)**. Plain
    "CSV (Comma delimited)" garbles accented letters (Müller, Peña), and the
    page will refuse it. Save one sheet at a time; a CSV holds only one.
@@ -25,34 +25,92 @@ removed as a unit.
 Files over 1000 rows: split them (e.g. rows 2–1001, 1002–2001) and import each
 part separately. Each part gets its own batch number.
 
+## The template
+
+`assets/import-template.csv` is the lab's standard format from now on. Its
+headers follow the lab's inventory sheets (`stssn.id`, `strand.SCL`,
+`humerus sampled`), so a sheet in that style keeps its names. Rules:
+
+- **One header row**, then one row per turtle. Title or banner rows above the
+  headers are skipped, but nothing may sit between the headers and the data.
+- **One sheet per file.** Save each Excel tab separately as CSV UTF-8.
+- **`stssn.id` holds only the STSSN**: initials + date + sequence, e.g.
+  `ABC20240612-01`. No sides (`… right`, `-01R`), no `-restained`, no
+  `(BJD)` prefixes, no `?`. A side goes in `humerus sampled`. Anything else
+  goes in a note (once notes are importable) or your import log.
+- **Stranding-network IDs are not STSSNs.** `VAQS` + year + number, `ST` + year + `-` +
+  number, `14-` + number etc. are stored as alternate IDs of the turtle's STSSN.
+  The dry run names the STSSN when the network ID is already known.
+- **Always fill `species`**, even on a single-species sheet: a file without
+  the column is refused, and a blank cell saves the turtle as `u` (unknown).
+- **`strand.date` is a full date** (`6/12/2024` or `2024-06-12`). Leave it
+  blank if the day is unknown: the database can't store a year and month on
+  their own, so `strand.year` / `strand.mo` are not imported.
+- **`state` is the two-letter code.** `FL(FG)` / `FL(FA)` are accepted and
+  saved as `FL`, with a warning, because the database has no coast column.
+- **Unknown is `u`** for species and sex (`unknown` is also accepted). Use
+  `unknown` in `humerus sampled`.
+
 ## Columns
 
-Headers are matched ignoring case, spaces and punctuation, so `SCL (cm)`,
-`scl_cm` and `SCL cm` all work. Only **STSSN** is required.
+Headers are matched ignoring case, spaces and punctuation, so `strand.SCL`,
+`SCL (cm)` and `scl_cm` all work. `stssn.id` and `species` are required columns.
 
 | Template header | Also accepted | Database column | Rules |
 | --- | --- | --- | --- |
-| STSSN | STSSN ID, STSSN number, Field ID | `stssn` | Required, at most 25 characters, unique in the file. Warning if not shaped like `ABC20240612-01` |
-| Species | Sp, Species code | `species` | `cc`, `cm`, `dc`, `ei`, `lk`, `u`, or the common name (Loggerhead, Green, Leatherback, Hawksbill, Kemp's ridley, Unknown). Any case. Blank = `u` |
-| Sex | Gender | `sex` | `f`, `m`, `u`, or Female / Male / Unknown. Any case. Blank = `u` |
-| Strand date | Date, Date stranded, Stranding date | `strand_date` | `2024-06-12` or `6/12/2024` (month/day/year, four-digit year). Not in the future, not before 1950. Blank is allowed, with a warning |
-| State | Strand state, St | `state` | Two-letter code, e.g. `FL`. Any case |
-| SCL (cm) | SCL, SCL NT, Straight carapace length | `strand_scl` | Number, 2–250 |
-| CCL (cm) | CCL, CCL NT, Curved carapace length | `strand_ccl` | Number, 2–250 |
-| SCW (cm) | SCW, Straight carapace width | `strand_scw` | Number, 1–200 |
-| Decomposition | Decomp, Decomposition code, Condition, Condition code | `decomposition` | Whole number, 0–5 (**lab to confirm**) |
-| Collaborator | Collaborators, Collector | `collaborator` | Text, at most 255 characters. Commas are fine |
-| GAMM ID | GAMM, GAMM number | `gamm_id` | Text |
-| Processed bone | Bone, Bone processed, Humerus side, Side | `processed_bone` | Text, e.g. `left`, `right`, `left & right`, `unknown` |
-| Rings (consensus) | Rings, Consensus rings, LAGs | `rings_consensus` | Whole number, 0–150 (**lab to confirm**) |
-| Annulus (consensus) | Annulus, Consensus annulus | `annulus_consensus` | Number, 0–100 (**lab to confirm units**) |
-| Humerus diameter | Humerus diam, HD | `humerus_diameter` | Number, 0–200 (**lab to confirm units**) |
+| stssn.id | STSSN, STSSN number, Field ID | `stssn` | Required, at most 25 characters, unique in the file, no spaces, brackets, `?` or side suffixes. Network IDs (VAQS…, ST2015-…) are refused. Warning for `XXX` initials or an unusual shape |
+| species | Sp, Species code | `species` | Required column. `cc`, `cm`, `dc`, `ei`, `lk`, `u`, or the common name (Loggerhead, Green, Leatherback, Hawksbill, Kemp's ridley, Unknown). Any case. Blank cell = `u`, with a warning |
+| sex | Gender | `sex` | `f`, `m`, `u`, or Female / Male / Unknown. Any case. Blank = `u` |
+| strand.date | Strand date, Date, Date stranded, Stranding date | `strand_date` | `2024-06-12` or `6/12/2024` (month/day/year, four-digit year). Not in the future, not before 1950. Blank is allowed, with a warning |
+| state | Strand state, St | `state` | Two-letter code, e.g. `FL`. Any case. `FL(FG)` saved as `FL` with a warning |
+| strand.SCL | SCL, SCL (cm), SCL NT, Straight carapace length | `strand_scl` | Number in cm, 2–250 |
+| strand.CCL | CCL, CCL (cm), CCL NT, Curved carapace length | `strand_ccl` | Number in cm, 2–250 |
+| strand.SCW | SCW, SCW (cm), Straight carapace width | `strand_scw` | Number in cm, 1–200 |
+| decomposition | Decomp, Decomposition code, Condition, Condition code | `decomposition` | Whole number, 0–5 (**lab to confirm**) |
+| collaborator | Collaborators, Collector | `collaborator` | Text, at most 255 characters. Commas are fine |
+| gamm.id | GAMM ID, GAMM, GAMM number | `gamm_id` | Text |
+| humerus sampled | Processed bone, Bone processed, Humerus side, Side | `processed_bone` | `left`, `right`, `left & right` or `unknown` |
+| rings.consensus | Rings, Rings (consensus), Consensus rings, LAGs | `rings_consensus` | Whole number, 0–150 (**lab to confirm**) |
+| annulus.consensus | Annulus, Annulus (consensus), Consensus annulus | `annulus_consensus` | Number, 0–100 (**lab to confirm units**) |
+| humerus.diameter | Humerus diameter, Humerus diam, HD | `humerus_diameter` | Number, 0–200 (**lab to confirm units**) |
 
 To accept another header, add it to `ALIASES` in `js/import-rules.js` and to
 this table. The ranges are in `RANGES` in the same file.
 
-Not imported here: notes, alternate IDs, age readings, extra samples and
-images. Those are separate tables (child-table import is Day 6).
+### Columns from the lab's sheets that are not imported
+
+These are recognised and listed as "Not imported", with the reason, so nobody
+assumes they were saved. Keep them in your sheet if useful; they are skipped.
+
+| Lab header | Why not | Where it lives |
+| --- | --- | --- |
+| bone.id | Lab bone number | No database column (ask if it should have one) |
+| other.id | Alternate IDs are a separate table | `alt_id`, child-table import (Day 6) |
+| strand.year, strand.mo | Not a full date | Use `strand.date` |
+| bone ends, skeleto section, SIA section, muscle, epidermis, barnacle, other (specify) | Sample locations are a separate table, one row per sample type | `extra_sample`, child-table import (Day 6) |
+| notes | Notes are a separate table | `note`, not yet importable |
+| entered by, initial entry date, modified on | Recorded automatically | Audit log: who imported, and when |
+| consensus image found | Images are linked as files | `consensus_image` (Day 5) |
+
+## What the LK inventory showed (2026-11-14)
+
+`LK_Inventory.xlsx` (Kemp's ridley, 806 rows) was run through these checks as
+an example of the backlog:
+
+- **636 of its 804 IDs are already in the database**, all as `lk`, and its
+  location columns are already in `extra_sample`. The sheet is mostly an
+  inventory of samples the database has, not new samples. Re-importing it
+  with **Update existing samples** would overwrite `sex`, `state`,
+  `strand.SCL` and `humerus sampled` with the sheet's values: only do that
+  if the sheet is known to be the more correct copy.
+- **130 rows use a network ID** (VAQS…, ST2015-…, VASC…, DMF…) in `stssn.id`.
+  Most are already alternate IDs of an STSSN in the database.
+- **13 IDs carry suffixes or notes** (a side after the ID, `-restained`,
+  initials in brackets, a bare date with a `?`, `unnamed?`) and must be cleaned by hand.
+- **2 network IDs appear twice.**
+- **No species column** and **no full strand date** (613 of 806 have month
+  `0`). Both must be added for any genuinely new turtle.
+- 66 Florida rows use `FL(FG)` / `FL(FA)`; 15 IDs start `XXX`.
 
 ## Existing samples
 

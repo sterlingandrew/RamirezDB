@@ -2,7 +2,7 @@ import Papa from 'https://esm.sh/papaparse@5.4.1';
 import { supabase } from '../supabase.js';
 import { requireRole } from '../auth.js';
 import { renderShell } from '../shell.js';
-import { checkRows, toPayload, labelOf } from '../import-rules.js';
+import { checkRows, toPayload, labelOf, findHeaderRow } from '../import-rules.js';
 
 // Personnel and admin. import_samples() is security invoker, so the insert
 // policies decide for real: a pending account is refused by the database even
@@ -68,8 +68,11 @@ function main() {
     if (fatal.length) return showFatal(['The file could not be read as CSV.', ...fatal]);
     if (!parsed.data.length) return showFatal(['The file is empty.']);
 
-    const [headers, ...records] = parsed.data;
-    checked = checkRows(headers, records);
+    // Rows above the headers (titles, group banners) are skipped. Row numbers
+    // stay those of the spreadsheet.
+    const h = findHeaderRow(parsed.data);
+    const [headers, ...records] = parsed.data.slice(h);
+    checked = checkRows(headers, records, new Date(), h + 2);
     if (checked.fatal.length) return showFatal(checked.fatal);
     render(checked, []);
   }
@@ -109,7 +112,10 @@ function main() {
     // Summary line.
     const parts = [`${rows.length} row${rows.length === 1 ? '' : 's'} in ${fileName}.`];
     parts.push(`Columns: ${keys.map(labelOf).join(', ')}.`);
-    if (ignored.length) parts.push(`Ignored (not a database column): ${ignored.join(', ')}.`);
+    if (ignored.length) {
+      parts.push(`Not imported: ${ignored.map((i) => `"${i.header}" (${i.why})`).join('; ')}.`);
+    }
+    parts.push(...result.notices);
     summaryEl.textContent = parts.join(' ');
 
     // Error list: browser checks first, then what the database said.
@@ -198,6 +204,26 @@ function main() {
     resultEl.hidden = true;
     statusEl.textContent = dryRun ? 'Dry run…' : 'Importing…';
 
+    // The lab's sheets put network IDs (VAQS…) in the STSSN column. Any ID
+    // that is already an alternate ID would otherwise import as a duplicate
+    // turtle, so it's an error, naming the STSSN to use.
+    const altErrors = await findAltIds(checked.rows);
+    if (altErrors === null) {
+      fileInput.disabled = false;
+      updateBox.disabled = false;
+      dryBtn.disabled = false;
+      statusEl.textContent = 'Could not check alternate IDs. Try again.';
+      return;
+    }
+    if (altErrors.length) {
+      fileInput.disabled = false;
+      updateBox.disabled = false;
+      dryRunPassed = false;
+      render(checked, altErrors);
+      statusEl.textContent = `${altErrors.length} ID${altErrors.length === 1 ? ' is' : 's are'} an alternate ID of another sample. Nothing was saved.`;
+      return;
+    }
+
     const { data, error } = await supabase.rpc('import_samples', {
       rows: toPayload(checked.rows),
       dry_run: dryRun,
@@ -238,6 +264,29 @@ function main() {
     statusEl.textContent = 'Done. Choose another file to import more.';
     showResult(`${data.added} added${data.updated ? `, ${data.updated} updated` : ''}, batch #${data.batch}. Write the batch number down: it identifies this import if it ever needs undoing.`);
     checked = null;
+  }
+
+  // [{row, stssn, column, message}] for IDs in the file that are stored as
+  // alternate IDs, or null if the lookup failed. Chunked to keep URLs short.
+  async function findAltIds(rows) {
+    const rowById = new Map(rows.map((r) => [r.cells.stssn.value, r.row]));
+    const ids = [...rowById.keys()];
+    const errors = [];
+    for (let i = 0; i < ids.length; i += 150) {
+      const { data, error } = await supabase
+        .from('alt_id')
+        .select('other_id, stssn')
+        .in('other_id', ids.slice(i, i + 150));
+      if (error) return null;
+      for (const alt of data) {
+        if (alt.other_id === alt.stssn) continue;
+        errors.push({
+          row: rowById.get(alt.other_id), stssn: alt.other_id, column: 'stssn',
+          message: `This is an alternate ID of ${alt.stssn}. Use ${alt.stssn} in stssn.id.`,
+        });
+      }
+    }
+    return errors;
   }
 
   function showResult(text) {

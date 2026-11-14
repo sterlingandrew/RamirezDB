@@ -1,1 +1,1 @@
-STSSN,Species,Sex,Strand date,State,SCL (cm),CCL (cm),SCW (cm),Decomposition,Collaborator,GAMM ID,Processed bone,Rings (consensus),Annulus (consensus),Humerus diameter
+stssn.id,species,sex,strand.date,state,strand.SCL,strand.CCL,strand.SCW,decomposition,collaborator,gamm.id,humerus sampled,rings.consensus,annulus.consensus,humerus.diameter
