@@ -99,3 +99,24 @@ select relname as table_name, relrowsecurity as rls_enabled
 from pg_class
 where relnamespace = 'public'::regnamespace and relkind = 'r'
 order by relrowsecurity, relname;
+
+-- ------------------------------------------------------- CSV import (0008)
+-- import_samples is security invoker, so the insert policies decide.
+-- pending: expect 42501 (RLS on the batch note), even with dry_run true.
+begin;
+select set_config('request.jwt.claims', json_build_object('role', 'authenticated',
+  'sub', (select id from profiles where email = 'test-pending@ramirezdb.test'))::text, true);
+set local role authenticated;
+select import_samples('[{"stssn": "rls-probe"}]'::jsonb, true);
+rollback;
+
+-- personnel: expect ok true, committed false (dry run), added 1; then a real
+-- import whose audit rows carry the batch id. Rolled back either way.
+begin;
+select set_config('request.jwt.claims', json_build_object('role', 'authenticated',
+  'sub', (select id from profiles where email = 'test-personnel@ramirezdb.test'))::text, true);
+set local role authenticated;
+select import_samples('[{"_row": 2, "stssn": "rls-probe", "species": "CC"}]'::jsonb, true);
+-- select import_samples('[{"_row": 2, "stssn": "rls-probe"}]'::jsonb, false);                -- committed true, batch N
+-- select operation, related_stssn, change_note from audit_log where related_stssn = 'rls-probe'; -- (admin only)
+rollback;

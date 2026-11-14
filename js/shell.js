@@ -4,6 +4,7 @@ import { supabase } from './supabase.js';
 const LINKS = [
   { href: 'samples.html',    label: 'Samples',    roles: ['personnel', 'admin'] },
   { href: 'new-sample.html', label: 'New sample', roles: ['personnel', 'admin'] },
+  { href: 'import.html',     label: 'Import',     roles: ['personnel', 'admin'] },
   { href: 'admin.html',      label: 'Admin',      roles: ['admin'] },
 ];
 

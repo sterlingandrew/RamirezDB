@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import · RamirezDB</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<header id="shell-header"></header>
+<main class="page">
+  <h1>Import samples</h1>
+
+  <section class="card">
+    <p class="lede">
+      Add many samples at once from a spreadsheet. Start from the
+      <a href="assets/import-template.csv" download>template</a>, or use your own
+      sheet if its headers are listed in
+      <a href="https://github.com/sterlingandrew/RamirezDB/blob/main/docs/import.md">the import guide</a>.
+    </p>
+    <ol class="hint">
+      <li>In Excel: File → Save As → <strong>CSV UTF-8 (Comma delimited)</strong>. Plain "CSV" garbles accented letters.</li>
+      <li>Choose the file below. Problems are listed and highlighted; nothing is saved.</li>
+      <li>Run a <strong>dry run</strong>. The database checks every row and still saves nothing.</li>
+      <li><strong>Import</strong>. All rows are saved, or none are. At most 1000 rows per file.</li>
+    </ol>
+
+    <div class="field">
+      <label for="file">CSV file</label>
+      <input class="input" id="file" type="file" accept=".csv,text/csv">
+    </div>
+    <div class="field">
+      <label class="check">
+        <input type="checkbox" id="update-existing">
+        Update existing samples
+      </label>
+      <p class="hint">
+        Off: an STSSN that's already in the database is an error. On: that sample is
+        overwritten with the file's non-blank cells. Blank cells never erase anything.
+      </p>
+    </div>
+
+    <div class="error" id="fatal" role="alert" hidden></div>
+    <p class="hint" id="summary"></p>
+    <p class="status" id="status" role="status"></p>
+    <p class="result" id="result" role="status" hidden></p>
+
+    <div class="row">
+      <button class="btn btn-secondary" id="dry-run" type="button" disabled>Dry run</button>
+      <button class="btn btn-primary" id="commit" type="button" disabled>Import</button>
+    </div>
+  </section>
+
+  <section class="card" id="errors-section" hidden>
+    <h2 id="errors-heading">Problems</h2>
+    <ul class="problems" id="errors"></ul>
+  </section>
+
+  <section class="card" id="preview-section" hidden>
+    <h2>Preview</h2>
+    <p class="hint" id="preview-note"></p>
+    <div class="table-wrap">
+      <table class="table" id="preview"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+</main>
+<script type="module" src="js/pages/import.js"></script>
+</body>
+</html>

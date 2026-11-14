@@ -21,3 +21,6 @@ load.sql
 # No build step in this project; these should never appear
 node_modules/
 dist/
+
+# ...except the import template, which holds headers only
+!assets/import-template.csv
