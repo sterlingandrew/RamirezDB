@@ -4,6 +4,7 @@ import { renderShell } from '../shell.js';
 import { species, sex, date, stamp, num, blank } from '../format.js';
 import {
   BUCKET, isLink, fileNameOf, objectUrl, readImageFields, addImageLink, copyRowIntoBucket,
+  copyRowsIntoBucket,
 } from '../images.js';
 
 // The detail page. Every member reads everything here; personnel and admin add
@@ -364,12 +365,15 @@ function errorText(error, spec) {
 }
 
 // ----------------------------------------------------------------- images
-// Only members may see images, so nothing is shown from Dropbox (a share link
-// is public). Bucket files are downloaded with the viewer's session and shown
-// from memory as blob: URLs, which can't be shared. A row whose file isn't in
-// the bucket yet (legacy Dropbox rows, or an import whose copy failed) shows
-// a button to copy it in.
+// Only members may see images, so nothing is shown from Dropbox. Bucket files
+// are downloaded with the viewer's session and shown from memory as blob:
+// URLs, which can't be shared. A row whose file isn't in the bucket yet
+// (legacy Dropbox rows, or an import whose copy failed) is copied in
+// automatically when personnel or an admin opens the page; there's no server
+// of ours to do it in the background (ADR-001). A failed copy shows a button.
 let blobUrls = [];
+const copyTried = new Set();   // image_ids attempted on this page load
+const copyProblems = new Map(); // image_id -> message, for failed copies
 
 async function renderImages() {
   const rows = sample.consensus_image ?? [];
@@ -379,16 +383,30 @@ async function renderImages() {
   const urls = await Promise.all(rows.map((r) => (isLink(r.raw_image) ? null : objectUrl(r.raw_image))));
   urls.forEach((u) => { if (u) blobUrls.push(u); });
 
-  document.getElementById('thumbs').replaceChildren(...rows.map((r, i) => imageCard(r, urls[i])));
+  // Copy in whatever isn't stored yet, once per page load.
+  const toCopy = canWrite
+    ? rows.filter((r, i) => !urls[i] && !copyTried.has(r.image_id) && (r.source_link || isLink(r.raw_image)))
+    : [];
+  toCopy.forEach((r) => copyTried.add(r.image_id));
+
+  document.getElementById('thumbs').replaceChildren(...rows.map((r, i) =>
+    imageCard(r, urls[i], toCopy.includes(r) ? 'copying' : null)));
   document.getElementById('images-empty').hidden = rows.length > 0;
   document.querySelector('#images h2').replaceChildren(
     'Consensus images ', el('span', { className: 'hint' }, `(${rows.length})`));
   document.getElementById('upload').hidden = !canWrite;
   document.getElementById('add-link').hidden = !canWrite;
   show('images');
+
+  if (toCopy.length) {
+    const failed = await copyRowsIntoBucket(toCopy.map((r) => ({ ...r, of_stssn: sample.stssn })));
+    failed.forEach(({ row, problem }) => copyProblems.set(row.image_id, problem));
+    if (failed.length < toCopy.length) await reload('Copied into secure storage.');
+    else await renderImages();
+  }
 }
 
-function imageCard(row, url) {
+function imageCard(row, url, state) {
   const legacy = isLink(row.raw_image);
   const name = legacy || !row.raw_image ? fileNameOf(row.source_link ?? row.raw_image)
     : row.raw_image.split('/').pop().replace(/^\d+-/, '');
@@ -399,9 +417,13 @@ function imageCard(row, url) {
       el('img', { src: url, alt: `Consensus image ${name}` })));
   } else {
     const box = el('div', { className: 'thumb-missing' },
-      legacy ? 'Not in secure storage yet.' : 'The file is missing from secure storage.');
-    if (canWrite && (row.source_link || legacy)) {
-      const copy = button('Copy into secure storage', 'btn-secondary');
+      state === 'copying' ? 'Copying into secure storage…'
+        : legacy ? 'Not in secure storage yet.' : 'The file is missing from secure storage.');
+    if (copyProblems.has(row.image_id)) {
+      box.append(el('span', { className: 'error', role: 'alert' }, copyProblems.get(row.image_id)));
+    }
+    if (canWrite && state !== 'copying' && (row.source_link || legacy)) {
+      const copy = button('Try again', 'btn-secondary');
       const err = el('span', { className: 'error', role: 'alert' });
       copy.addEventListener('click', async () => {
         copy.disabled = true;
@@ -410,7 +432,7 @@ function imageCard(row, url) {
         if (problem) {
           err.textContent = problem;
           copy.disabled = false;
-          copy.textContent = 'Copy into secure storage';
+          copy.textContent = 'Try again';
           return;
         }
         await reload('Copied the image into secure storage.');

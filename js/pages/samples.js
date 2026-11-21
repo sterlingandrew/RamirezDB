@@ -22,9 +22,13 @@ if (profile) {
 
     // Select columns explicitly — select('*') leaks new columns into the UI
     // and gets slower as the schema grows.
+    // Has a consensus image: an inner join keeps only samples with one; for
+    // "no image", PostgREST filters on the embedded rows being absent.
+    const image = form.image.value;
+    const embed = image === 'yes' ? 'consensus_image!inner(image_id)' : 'consensus_image(image_id)';
     let query = supabase
       .from('sample')
-      .select('stssn, species, strand_date, sex, state, strand_scl, rings_consensus',
+      .select(`stssn, species, strand_date, sex, state, strand_scl, rings_consensus, ${embed}`,
               { count: 'exact' })
       .order('strand_date', { ascending: false })
       .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
@@ -34,6 +38,7 @@ if (profile) {
     if (form.species.value) query = query.eq('species', form.species.value);
     if (form.from.value) query = query.gte('strand_date', form.from.value);
     if (form.to.value) query = query.lte('strand_date', form.to.value);
+    if (image === 'no') query = query.is('consensus_image', null);
 
     const { data, count, error } = await query;
 
@@ -58,10 +63,11 @@ if (profile) {
       const cells = [
         link, species(row.species), date(row.strand_date), sex(row.sex),
         blank(row.state), num(row.strand_scl), blank(row.rings_consensus),
+        row.consensus_image?.length ? 'Yes' : '—',
       ];
       cells.forEach((value, i) => {
         const td = document.createElement('td');
-        if (i >= 5) td.className = 'num';
+        if (i === 5 || i === 6) td.className = 'num';
         td.append(value);
         tr.append(td);
       });

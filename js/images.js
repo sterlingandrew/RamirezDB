@@ -152,13 +152,37 @@ export async function copyRowIntoBucket(row) {
   const problem = await copyLinkToBucket(link, path);
   if (problem) return problem;
   if (path === row.raw_image && row.source_link) return null;
-  const { error } = await supabase.from('consensus_image')
+  // Only if the row still holds what we read: copies run automatically, so
+  // two people opening the same page at once may both copy. The first update
+  // wins and the second changes nothing (its extra file is harmless).
+  const { data, error } = await supabase.from('consensus_image')
     .update({ raw_image: path, source_link: link })
     .eq('image_id', row.image_id)
-    .select('image_id').single();
-  if (!error) return null;
-  return error.code === 'PGRST116' ? "You don't have permission to change images."
-    : 'Could not update the image record: ' + error.message;
+    .eq('raw_image', row.raw_image)
+    .select('image_id');
+  if (error) return 'Could not update the image record: ' + error.message;
+  if (data.length) return null;
+  const { data: now } = await supabase.from('consensus_image')
+    .select('raw_image').eq('image_id', row.image_id).maybeSingle();
+  return now && !isLink(now.raw_image) ? null : "You don't have permission to change images.";
+}
+
+// Copy every row in `rows` that isn't in the bucket yet, two at a time.
+// onProgress(done, failed) after each. Resolves to [{ row, problem }].
+export async function copyRowsIntoBucket(rows, onProgress = () => {}) {
+  const queue = [...rows];
+  const failed = [];
+  let done = 0;
+  await Promise.all([0, 1].map(async () => {
+    while (queue.length) {
+      const row = queue.shift();
+      const problem = await copyRowIntoBucket(row);
+      if (problem) failed.push({ row, problem });
+      done++;
+      onProgress(done, failed.length);
+    }
+  }));
+  return failed;
 }
 
 // Download a bucket file with the viewer's session and return an object URL
