@@ -35,16 +35,16 @@
   </section>
 
   <section class="card" id="images-section" hidden>
-    <h2>Images not in secure storage</h2>
-    <p class="hint">These images are still only Dropbox links, which anyone with the link can open,
-      so the site doesn't show them. Copying puts each file in the private bucket, where only
-      personnel and admins can see it. Keep this page open while it runs.</p>
+    <h2>Copying images into secure storage</h2>
+    <p class="hint">Images from the old database are copied from Dropbox into the private bucket,
+      where only personnel and admins can see them. This starts on its own and only shows while
+      there's something to copy.</p>
     <p id="images-pending"></p>
-    <div class="row">
-      <button class="btn btn-primary" id="copy-images" type="button">Copy into secure storage</button>
-    </div>
     <p class="status" id="images-status" role="status"></p>
     <ul class="problems" id="images-failed"></ul>
+    <div class="row">
+      <button class="btn btn-secondary" id="copy-images" type="button" hidden>Try again</button>
+    </div>
   </section>
 
   <section class="card">

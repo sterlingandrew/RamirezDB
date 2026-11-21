@@ -150,8 +150,11 @@ like any other; every image field is optional.
 - **Upload a file:** its page → Consensus images → Upload. JPEG, PNG or WebP,
   up to 50 MB.
 - **Not copied yet:** an image whose copy failed, or one of the 81 from MySQL,
-  shows "Not in secure storage yet" (or "missing") with a **Copy into secure
-  storage** button for personnel and admins.
+  is copied automatically when personnel or an admin opens its sample page
+  ("Copying into secure storage…"). If that fails, the page says why and
+  offers **Try again**. There's no server of ours to do this in the
+  background (ADR-001 rules out Edge Functions), so it happens in the
+  browser of whoever is looking.
 - **Remove one:** admin only, Delete under the image. The record goes first,
   then the file.
 - Files are stored as `<STSSN>/<number>-<file name>`, and nothing ever
@@ -166,12 +169,14 @@ changed record whose `raw_image` is a web link.
 
 ### Copying the 81 MySQL images into secure storage (once)
 
-1. Sign in as an admin → **Admin** → "Images not in secure storage" → **Copy
-   into secure storage**. Keep the page open until it says done. Each copy is
-   audited (`consensus_image UPDATE`, with the old value). Anything that fails
-   is listed with its sample; run it again, or use the button on that sample.
-2. When the section no longer appears, every image is in the bucket. Then,
-   in the SQL editor, make the bucket rule apply to every row:
+1. Sign in as an admin and open **Admin**. Copying starts by itself ("Copying
+   images into secure storage", with a count); keep the page open until it
+   finishes. Each copy is audited (`consensus_image UPDATE`, with the old
+   value). Anything that fails is listed with its sample and a **Try again**
+   button.
+2. When the section no longer appears on the Admin page, every image is in
+   the bucket. Then, in the SQL editor, make the bucket rule apply to every
+   row:
 
    ```sql
    alter table consensus_image validate constraint consensus_image_in_bucket;
