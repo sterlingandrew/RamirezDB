@@ -126,6 +126,72 @@ collected and fixed before handoff.
 To undo a bad import, an admin follows "Finding and undoing a batch" in
 [import.md](import.md).
 
+## Consensus images
+
+**Only personnel and admins may see images.** A Dropbox share link opens for
+anyone who has it, so the site never shows an image from Dropbox. Every image
+is copied into the private Storage bucket `consensus-images` (0009), and the
+pages download it with the viewer's own sign-in and show it from memory. No
+public, signed or shareable link is ever made.
+
+**The Dropbox link is still the lab's record of an image: no link, no image.**
+It's kept in `consensus_image.source_link` (members only), and the copy's
+path in the bucket is in `raw_image`. A sample without an image is recorded
+like any other; every image field is optional.
+
+- **With a new sample:** the New sample form's optional Dropbox image and
+  folder link fields. The file is copied in when the sample is saved.
+- **Many at once:** the CSV import's `consensus.image` and `image.folder`
+  columns ([import.md](import.md)). The dry run checks each link opens; after
+  the import the page copies each file in. Keep the page open until it says
+  done. Tick "Update existing samples" to attach links to turtles already in
+  the database.
+- **Add a link to an existing sample:** its page → Consensus images → Add link.
+- **Upload a file:** its page → Consensus images → Upload. JPEG, PNG or WebP,
+  up to 50 MB.
+- **Not copied yet:** an image whose copy failed, or one of the 81 from MySQL,
+  shows "Not in secure storage yet" (or "missing") with a **Copy into secure
+  storage** button for personnel and admins.
+- **Remove one:** admin only, Delete under the image. The record goes first,
+  then the file.
+- Files are stored as `<STSSN>/<number>-<file name>`, and nothing ever
+  overwrites a stored file.
+- **Thumbnails are the full image** scaled down by the browser. Resized
+  thumbnails need Storage image transformations, a Pro plan feature.
+
+Storage access is set by policies on `storage.objects` in 0009, separate from
+the table policies: members read, personnel and admin upload, admin deletes,
+nobody overwrites. The `consensus_image_in_bucket` check refuses a new or
+changed record whose `raw_image` is a web link.
+
+### Copying the 81 MySQL images into secure storage (once)
+
+1. Sign in as an admin → **Admin** → "Images not in secure storage" → **Copy
+   into secure storage**. Keep the page open until it says done. Each copy is
+   audited (`consensus_image UPDATE`, with the old value). Anything that fails
+   is listed with its sample; run it again, or use the button on that sample.
+2. When the section no longer appears, every image is in the bucket. Then,
+   in the SQL editor, make the bucket rule apply to every row:
+
+   ```sql
+   alter table consensus_image validate constraint consensus_image_in_bucket;
+   ```
+
+3. **Ask the lab to turn off the Dropbox links once their files are copied**
+   (Dropbox → Shared → Links → delete). Until then, anyone who has one of the
+   old links can still open that image on Dropbox, whatever this site does.
+   The copy needs the link to be open ("anyone with the link"), so the same
+   goes for every new link: share it, add it here, and once the sample page
+   shows the image, turn the link off. The record keeps the link as history;
+   it simply stops opening.
+
+Two image records (ids 30 and 34, on two different samples) link to the same
+Dropbox file, whose name matches only the sample of id 34. Both are copied as
+they are; the lab says which sample the image belongs to.
+
+A local copy of the 80 files, taken on 2026-11-21, is in
+`private-data/consensus-images/` on the maintainer's machine (not in git).
+
 ## Auth settings
 
 Set in the Supabase dashboard, not in the repo, so they're listed here. If

@@ -22,10 +22,15 @@ Decided with the lab on Oct 10. C = create, R = read, U = update, D = delete. Bl
 | consensus_image | | | CRU | CRUD |
 | audit_log | | | | R |
 | profiles | | R (own row) | R | CRUD |
+| Storage: consensus-images | | | CR | CRD |
 
 Enforced by `0003_rls_policies.sql` (insert, update, delete) and
 `0006_roles.sql`, which supersedes 0003's select policies and closes its open
-question. 0003 is left as it is: migrations are append-only.
+question. 0003 is left as it is: migrations are append-only. The image bucket
+is governed by its own policies on `storage.objects`, in `0009_images.sql`.
+No one may overwrite a stored image; a replacement is a new upload. Images
+are only ever shown from the private bucket, downloaded with the viewer's
+session; the site never displays a Dropbox link, which would be public.
 
 ## Notes
 

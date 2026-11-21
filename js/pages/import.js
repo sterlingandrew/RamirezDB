@@ -3,6 +3,7 @@ import { supabase } from '../supabase.js';
 import { requireRole } from '../auth.js';
 import { renderShell } from '../shell.js';
 import { checkRows, toPayload, labelOf, findHeaderRow } from '../import-rules.js';
+import { probeLink, copyLinkToBucket } from '../images.js';
 
 // Personnel and admin. import_samples() is security invoker, so the insert
 // policies decide for real: a pending account is refused by the database even
@@ -258,6 +259,30 @@ function main() {
       return;
     }
 
+    // Image links must still open: the files are copied from them into the
+    // private bucket right after the import. Checked on the dry run.
+    if (dryRun) {
+      const linkRows = checked.rows.filter((r) => r.cells.raw_image?.value);
+      if (linkRows.length) {
+        statusEl.textContent = `Checking ${linkRows.length} image link${linkRows.length === 1 ? '' : 's'}…`;
+        const dead = [];
+        await pool(linkRows, 4, async (r) => {
+          const problem = await probeLink(r.cells.raw_image.value);
+          if (problem) dead.push({ row: r.row, stssn: r.cells.stssn.value, column: 'raw_image', message: problem });
+        });
+        if (dead.length) {
+          fileInput.disabled = false;
+          updateBox.disabled = false;
+          fillBox.disabled = false;
+          dryRunPassed = false;
+          dead.sort((a, b) => a.row - b.row);
+          render(checked, dead);
+          statusEl.textContent = `${dead.length} image link${dead.length === 1 ? '' : 's'} can't be opened. Nothing was saved.`;
+          return;
+        }
+      }
+    }
+
     const { data, error } = await supabase.rpc('import_samples', {
       rows: toPayload(checked.rows),
       dry_run: dryRun,
@@ -288,7 +313,7 @@ function main() {
     if (dryRun) {
       dryRunPassed = true;
       render(checked, []);
-      showResult(`Dry run passed: ${data.added} would be added, ${data.updated} updated. Nothing has been saved yet.`);
+      showResult(`Dry run passed: ${data.added} would be added, ${data.updated} updated${imagesText(data.images, 'would be linked')}. Nothing has been saved yet.`);
       return;
     }
 
@@ -296,9 +321,48 @@ function main() {
     dryRunPassed = false;
     dryBtn.disabled = true;
     commitBtn.disabled = true;
-    statusEl.textContent = 'Done. Choose another file to import more.';
-    showResult(`${data.added} added${data.updated ? `, ${data.updated} updated` : ''}, batch #${data.batch}. Write the batch number down: it identifies this import if it ever needs undoing.`);
     checked = null;
+    const summary = `${data.added} added${data.updated ? `, ${data.updated} updated` : ''}${imagesText(data.images, 'linked')}, batch #${data.batch}. Write the batch number down: it identifies this import if it ever needs undoing.`;
+    showResult(summary);
+
+    // Copy each image into the private bucket, at the path the import gave
+    // its record. Leaving the page stops the copying; anything not copied
+    // shows a "Copy into secure storage" button on its sample page.
+    const copies = data.copies ?? [];
+    const failed = [];
+    let done = 0;
+    if (copies.length) {
+      fileInput.disabled = true;
+      const leaveWarning = (e) => { e.preventDefault(); e.returnValue = ''; };
+      addEventListener('beforeunload', leaveWarning);
+      await pool(copies, 2, async (c) => {
+        const problem = await copyLinkToBucket(c.link, c.path);
+        if (problem) failed.push({ ...c, problem });
+        done++;
+        statusEl.textContent = `Copying images into secure storage: ${done} of ${copies.length}. Keep this page open.`;
+      });
+      removeEventListener('beforeunload', leaveWarning);
+      fileInput.disabled = false;
+    }
+
+    if (failed.length) {
+      failed.sort((a, b) => a.row - b.row);
+      showResult(`${summary} ${failed.length} of ${copies.length} images could not be copied into secure storage. Open each sample below and use "Copy into secure storage".`);
+      errorList.replaceChildren(...failed.map((f) => {
+        const li = document.createElement('li');
+        li.className = 'error';
+        const a = document.createElement('a');
+        a.href = `sample.html?id=${encodeURIComponent(f.stssn)}`;
+        a.textContent = f.stssn;
+        li.append(`Row ${f.row}, `, a, `: ${f.problem}`);
+        return li;
+      }));
+      document.getElementById('errors-heading').textContent = 'Images not copied';
+      errorSection.hidden = false;
+    }
+    statusEl.textContent = copies.length
+      ? `Done. ${copies.length - failed.length} of ${copies.length} images are in secure storage. Choose another file to import more.`
+      : 'Done. Choose another file to import more.';
   }
 
   // [{row, stssn, column, message}] for IDs in the file that are stored as
@@ -322,6 +386,19 @@ function main() {
       }
     }
     return errors;
+  }
+
+  // ", 12 images linked". Links already on their sample are skipped, not counted.
+  function imagesText(n, verb) {
+    return n ? `, ${n} image${n === 1 ? '' : 's'} ${verb}` : '';
+  }
+
+  // Run `task` over `items`, at most `size` at a time.
+  async function pool(items, size, task) {
+    const queue = [...items];
+    await Promise.all(Array.from({ length: Math.min(size, queue.length) }, async () => {
+      while (queue.length) await task(queue.shift());
+    }));
   }
 
   function showResult(text) {

@@ -26,6 +26,10 @@ export const COLUMNS = [
   { key: 'rings_consensus',   label: 'rings.consensus' },
   { key: 'annulus_consensus', label: 'annulus.consensus' },
   { key: 'humerus_diameter',  label: 'humerus.diameter' },
+  // The consensus image, as Dropbox links (one image per row). They go to
+  // consensus_image, not sample. No link means the lab has no image.
+  { key: 'raw_image',         label: 'consensus.image' },
+  { key: 'image_folder',      label: 'image.folder' },
 ];
 
 // Header spellings accepted for each column, compared after normalising
@@ -51,6 +55,9 @@ const ALIASES = {
   rings_consensus:   ['ringsconsensus', 'rings', 'consensusrings', 'lags', 'lagsconsensus'],
   annulus_consensus: ['annulusconsensus', 'annulus', 'consensusannulus'],
   humerus_diameter:  ['humerusdiameter', 'humerusdiam', 'hd', 'humerusdiametermm'],
+  raw_image:         ['consensusimage', 'consensusimagelink', 'consensusimageurl', 'imagelink',
+                      'imageurl', 'image', 'rawimage', 'dropboxlink', 'dropboximage'],
+  image_folder:      ['imagefolder', 'imagefolderlink', 'dropboxfolder', 'folder', 'folderlink'],
 };
 
 export const normHeader = (h) => String(h ?? '').replace(/^﻿/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -76,7 +83,7 @@ export const NOT_IMPORTED = {
   enteredby:           'recorded automatically: the signed-in importer',
   initialentrydate:    'recorded automatically in the audit log',
   modifiedon:          'recorded automatically in the audit log',
-  consensusimagefound: 'images are linked separately (Day 5)',
+  consensusimagefound: 'a yes/no flag; put the Dropbox link itself in consensus.image',
 };
 
 const HEADER_TO_KEY = new Map();
@@ -101,7 +108,7 @@ export const RANGES = {
   humerus_diameter:  { min: 0,  max: 200, integer: false },  // CONFIRM units
 };
 
-const MAX_LEN = { stssn: 25, collaborator: 255 };
+const MAX_LEN = { stssn: 25, collaborator: 255, raw_image: 2083, image_folder: 2083 };
 
 // Network IDs that turn up in the stssn.id column of the lab's sheets but are
 // alternate IDs in the database: VAQS / VASC / VDGIF / DMF + year + number,
@@ -267,6 +274,46 @@ export function dateFromStssn(id, today = new Date()) {
   return r.error ? null : r.value;
 }
 
+// Dropbox share links. A file link is /scl/fi/… (or the older /s/…); a
+// folder link is /scl/fo/…. A file link must end in raw=1 to show as an
+// image: the share dialog gives dl=0, which opens Dropbox's preview page.
+const DROPBOX_FILE = /^https:\/\/(www\.)?dropbox\.com\/(scl\/fi|s)\//i;
+const DROPBOX_FOLDER = /^https:\/\/(www\.)?dropbox\.com\/(scl\/fo|sh)\//i;
+
+function checkLink(key, raw) {
+  let url;
+  try { url = new URL(raw); } catch { url = null; }
+  if (!url || !/^https?:$/.test(url.protocol)) {
+    return { value: raw, error: 'Not a link. Paste the full Dropbox link (https://www.dropbox.com/…).' };
+  }
+  if (raw.length > MAX_LEN[key]) return { value: raw, error: `Longer than ${MAX_LEN[key]} characters.` };
+  if (key === 'image_folder') {
+    return DROPBOX_FILE.test(raw)
+      ? { value: raw, warning: 'This is a file link, not a folder link. The image itself goes in consensus.image.' }
+      : { value: raw };
+  }
+  if (DROPBOX_FOLDER.test(raw)) {
+    return { value: raw, error: 'This is a folder link. Put it in image.folder, and the link to the image file here.' };
+  }
+  // The file is copied from Dropbox into the private bucket, so only a
+  // Dropbox file link can be used. Other images are uploaded on the sample page.
+  if (!DROPBOX_FILE.test(raw)) {
+    return { value: raw, error: "Not a Dropbox file link. Use the Dropbox link (right-click the file → Copy link), or upload the image on the sample's page." };
+  }
+  // st= is a per-share tracking token: two copies of one link differ only
+  // there. It isn't needed to open the file, so it's dropped.
+  if (url.searchParams.get('raw') === '1' && !url.searchParams.has('dl') && !url.searchParams.has('st')) {
+    return { value: raw };
+  }
+  url.searchParams.delete('dl');
+  url.searchParams.delete('st');
+  url.searchParams.set('raw', '1');
+  return { value: url.toString(), fixed: 'Tidied to the raw=1 form, so the image shows on the sample page.' };
+}
+
+// Two links to the same Dropbox file share everything before the "?".
+export const linkKey = (link) => (DROPBOX_FILE.test(link) ? link.split('?')[0].toLowerCase() : link);
+
 export function checkCell(key, rawIn, today) {
   const raw = String(rawIn ?? '').trim();
 
@@ -325,6 +372,7 @@ export function checkCell(key, rawIn, today) {
     if (coast) return { value: coast[1], warning: `Saved as ${coast[1]}; the "(${coast[2]})" qualifier isn't stored.` };
     return /^[A-Z]{1,2}$/.test(v) ? { value: v } : { value: raw, error: 'Use the two-letter state code, e.g. FL.' };
   }
+  if (key === 'raw_image' || key === 'image_folder') return checkLink(key, raw);
   if (key in RANGES) {
     const r = parseNumber(raw, RANGES[key]);
     return r.error ? { value: raw, error: r.error } : { value: r.value };
@@ -391,6 +439,31 @@ export function checkRows(headers, records, today = new Date(), firstRow = 2, op
       }
     }
 
+    // An image link belongs to one turtle. The same link on two rows is
+    // almost always a copy-paste slip, so every copy is an error.
+    const byLink = new Map();
+    for (const row of rows) {
+      const link = row.cells.raw_image?.value && linkKey(row.cells.raw_image.value);
+      if (!link || row.cells.raw_image.error) continue;
+      if (!byLink.has(link)) byLink.set(link, []);
+      byLink.get(link).push(row);
+    }
+    for (const [, list] of byLink) {
+      if (list.length < 2) continue;
+      const where = list.map((r) => r.row).join(', ');
+      for (const row of list) {
+        row.cells.raw_image.error = `The same image link is on rows ${where}. Each turtle needs its own image.`;
+        delete row.cells.raw_image.warning;
+      }
+    }
+    // A folder with no image link saves nothing.
+    for (const row of rows) {
+      const folder = row.cells.image_folder;
+      if (folder?.value && !folder.error && !row.cells.raw_image?.value) {
+        folder.warning = 'No consensus.image link on this row, so the folder is not saved.';
+      }
+    }
+
     if (rows.length === 0) fatal.push('The file has headers but no data rows.');
     if (rows.length > MAX_ROWS) {
       fatal.push(`${rows.length} rows. At most ${MAX_ROWS} per import: split the file into batches.`);
@@ -423,13 +496,15 @@ export function checkRows(headers, records, today = new Date(), firstRow = 2, op
 
 // What import_samples() receives: non-blank values only, plus the row number.
 // Blank cells are left out, so on an update they never erase stored data, and
-// on an insert species and sex fall back to 'u' in the database.
+// on an insert species and sex fall back to 'u' in the database. A folder
+// without an image link is dropped (it was warned about).
 export function toPayload(rows) {
   return rows.map((row) => {
     const out = { _row: row.row };
     for (const [key, cell] of Object.entries(row.cells)) {
       if (cell.value !== '') out[key] = cell.value;
     }
+    if (!out.raw_image) delete out.image_folder;
     return out;
   });
 }

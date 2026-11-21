@@ -12,36 +12,73 @@
   <p class="crumb"><a href="samples.html">← All samples</a></p>
   <h1 id="title">Sample</h1>
   <p class="status" id="status" role="status">Loading…</p>
+  <p class="result" id="flash" role="status" hidden></p>
 
   <section class="card" id="core" hidden>
     <h2>Stranding record</h2>
     <dl class="pairs" id="core-pairs"></dl>
   </section>
 
-  <section class="card" id="readings" hidden>
-    <h2>Age readings</h2>
-    <table class="table">
-      <thead><tr><th>Reader</th><th class="num">Rings</th><th class="num">Annulus</th><th>Note</th></tr></thead>
-      <tbody></tbody>
-    </table>
+  <!-- Child tables. js/pages/sample.js fills each one from the same spec:
+       a table, an Edit/Delete cell per row, and an inline Add form. -->
+  <section class="card child" id="alt-ids" hidden></section>
+  <section class="card child" id="readings" hidden></section>
+  <section class="card child" id="extras" hidden></section>
+  <section class="card child" id="notes" hidden></section>
+
+  <section class="card" id="images" hidden>
+    <h2>Consensus images</h2>
+    <p class="hint" id="images-empty" hidden>No images.</p>
+    <div class="thumbs" id="thumbs"></div>
+    <form class="inline-form" id="upload" hidden>
+      <div class="field">
+        <label for="upload-file">Add an image (JPEG, PNG or WebP, up to 50 MB)</label>
+        <input class="input" id="upload-file" name="file" type="file"
+               accept="image/jpeg,image/png,image/webp" required>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Upload</button>
+      </div>
+      <p class="error" role="alert" hidden></p>
+    </form>
+    <form class="inline-form" id="add-link" hidden>
+      <p class="hint">Or paste its Dropbox link: the file is copied into secure storage, where only personnel and admins can see it. If there's no link, there's no image.</p>
+      <div class="inline-grid">
+        <div class="field">
+          <label for="link-file">Dropbox link to the image file</label>
+          <input class="input" id="link-file" name="link" type="url" maxlength="2083" required
+                 placeholder="https://www.dropbox.com/scl/fi/…">
+        </div>
+        <div class="field">
+          <label for="link-folder">Dropbox folder link (optional)</label>
+          <input class="input" id="link-folder" name="folder" type="url" maxlength="2083"
+                 placeholder="https://www.dropbox.com/scl/fo/…">
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn btn-secondary" type="submit">Add link</button>
+      </div>
+      <p class="error" role="alert" hidden></p>
+    </form>
   </section>
 
-  <section class="card" id="extras" hidden>
-    <h2>Extra samples</h2>
-    <table class="table">
-      <thead><tr><th>Type</th><th>Location</th><th>Side</th><th>Processed</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </section>
-
-  <section class="card" id="notes" hidden>
-    <h2>Notes</h2>
-    <ul class="notes"></ul>
+  <section class="card" id="history" hidden>
+    <h2>History</h2>
+    <p class="hint">The latest changes to this sample and its child records. Only admins see this.</p>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>When</th><th>Who</th><th>Change</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
 
   <p class="row" id="actions" hidden>
     <a class="btn btn-secondary" id="edit-link" href="#">Edit</a>
+    <button class="btn btn-ghost" id="delete-sample" type="button" hidden>Delete sample</button>
   </p>
+
+  <section class="card danger-zone" id="delete-panel" hidden aria-live="polite"></section>
 </main>
 <script type="module" src="js/pages/sample.js"></script>
 </body>

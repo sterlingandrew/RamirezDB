@@ -50,6 +50,19 @@ headers follow the lab's inventory sheets (`stssn.id`, `strand.SCL`,
   saved as `FL`, with a warning, because the database has no coast column.
 - **Unknown is `u`** for species and sex (`unknown` is also accepted). Use
   `unknown` in `humerus sampled`.
+- **Images are Dropbox links.** Put the link to the turtle's consensus image
+  file in `consensus.image` and the link to its Dropbox folder in
+  `image.folder`. If there's no link, there's no image: leave both blank. In
+  Dropbox: right-click the file → **Copy link** (it must open for "anyone
+  with the link"). One image per row, and each image belongs to one turtle:
+  the same link on two rows, or a link already on another sample, is an
+  error. Re-importing a link that's already on the same sample does nothing.
+- **Images are copied into secure storage.** The dry run checks that every
+  link opens. After the import, the page copies each file into the private
+  bucket, where only personnel and admins can see it: **keep the page open
+  until it says done**. Anything not copied is listed, and its sample page
+  has a "Copy into secure storage" button. Once copied, the Dropbox link can
+  be turned off ([operations.md](operations.md), Consensus images).
 
 ## Automatic fixes
 
@@ -86,6 +99,9 @@ Other fixes:
 - Species and sex names become codes (`Kemp's ridley` → `lk`, `Female` → `f`).
 - State is uppercased; `FL(FG)` / `FL(FA)` become `FL` (warning).
 - Dates in `6/12/2024` form become `2024-06-12`.
+- Dropbox image links are tidied to the `raw=1` form (Dropbox's "Copy link"
+  gives `dl=0`, which opens a preview page instead of the image), and the
+  `st=` tracking part is dropped.
 
 ## Columns
 
@@ -109,6 +125,13 @@ Headers are matched ignoring case, spaces and punctuation, so `strand.SCL`,
 | rings.consensus | Rings, Rings (consensus), Consensus rings, LAGs | `rings_consensus` | Whole number, 0–150 (**lab to confirm**) |
 | annulus.consensus | Annulus, Annulus (consensus), Consensus annulus | `annulus_consensus` | Number, 0–100 (**lab to confirm units**) |
 | humerus.diameter | Humerus diameter, Humerus diam, HD | `humerus_diameter` | Number, 0–200 (**lab to confirm units**) |
+| consensus.image | Consensus image, Image link, Image URL, Image, Dropbox link | `consensus_image.source_link`; the copy's path goes in `raw_image` | A Dropbox **file** link (`https://www.dropbox.com/scl/fi/…`) that opens. A folder link or any other web link is an error (upload those images on the sample page). Unique: one turtle per image. Blank = no image |
+| image.folder | Image folder, Dropbox folder, Folder | `consensus_image.image_folder` | The Dropbox **folder** link the image is in. Saved only with a `consensus.image` link (warning otherwise) |
+
+The **New sample** form has the same fields, with the template header shown
+beside each label, and checks each one with the same rules (`checkCell` in
+`js/import-rules.js`), including the automatic fixes. A column added here
+belongs in `new-sample.html` too; the form sends whatever named fields it has.
 
 To accept another header, add it to `ALIASES` in `js/import-rules.js` and to
 this table. The ranges are in `RANGES` in the same file.
@@ -126,7 +149,7 @@ assumes they were saved. Keep them in your sheet if useful; they are skipped.
 | bone ends, skeleto section, SIA section, muscle, epidermis, barnacle, other (specify) | Sample locations are a separate table, one row per sample type | `extra_sample`, child-table import (Day 6) |
 | notes | Notes are a separate table | `note`, not yet importable |
 | entered by, initial entry date, modified on | Recorded automatically | Audit log: who imported, and when |
-| consensus image found | Images are linked as files | `consensus_image` (Day 5) |
+| consensus image found | A yes/no flag, not the image | Put the Dropbox link itself in `consensus.image` |
 
 ## What the LK inventory showed (2026-11-14)
 
@@ -203,3 +226,10 @@ the normal row-level security decides who may import: a pending account is
 refused (42501), dry run included. It re-checks species, sex, types, lengths,
 duplicates and existing STSSNs itself, so the browser checks are a convenience,
 not the boundary. The numeric ranges are checked only in the browser.
+
+Image links (0009) go to `consensus_image`, in the same row savepoint as the
+sample, so a bad link fails its row and therefore the import. The record
+gets the link as `source_link` and a new bucket path as `raw_image`; the
+import result lists them (`copies`) and the page copies each file there. The database
+compares Dropbox links on the part before the `?`, so two copies of one link
+that differ only in `dl=`, `raw=` or `st=` count as the same image.

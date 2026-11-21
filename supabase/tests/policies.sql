@@ -120,3 +120,31 @@ select import_samples('[{"_row": 2, "stssn": "rls-probe", "species": "CC"}]'::js
 -- select import_samples('[{"_row": 2, "stssn": "rls-probe"}]'::jsonb, false);                -- committed true, batch N
 -- select operation, related_stssn, change_note from audit_log where related_stssn = 'rls-probe'; -- (admin only)
 rollback;
+
+-- ------------------------------------------------ image bucket (0009)
+-- Storage policies are separate from table RLS. Run once per test account,
+-- swapping the email. Expect:
+--   pending:   upload denied (42501), 0 objects visible
+--   personnel: upload allowed, objects visible, update 0 rows
+--   admin:     upload allowed, objects visible, update 0 rows
+-- Deletes can't be probed here: Supabase blocks direct SQL deletes on
+-- storage.objects. Check them on the page (admin: Delete under an image works;
+-- personnel: no Delete button, and the Storage API refuses).
+begin;
+select set_config('request.jwt.claims', json_build_object('role', 'authenticated',
+  'sub', (select id from profiles where email = 'test-personnel@ramirezdb.test'))::text, true);
+set local role authenticated;
+insert into storage.objects (bucket_id, name, owner_id)
+  values ('consensus-images', 'rls-probe/probe.jpg', auth.uid()::text);
+select count(*) as objects_visible from storage.objects where bucket_id = 'consensus-images';
+update storage.objects set metadata = '{}' where bucket_id = 'consensus-images';  -- expect 0 rows
+rollback;
+
+-- Deleting a sample that has child rows must fail with 23503 (restrict FKs),
+-- for admins too. Run as test-admin.
+begin;
+select set_config('request.jwt.claims', json_build_object('role', 'authenticated',
+  'sub', (select id from profiles where email = 'test-admin@ramirezdb.test'))::text, true);
+set local role authenticated;
+-- delete from sample where stssn = (select stssn from alt_id limit 1);   -- must fail: 23503
+rollback;
