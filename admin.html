@@ -34,19 +34,6 @@
     </table>
   </section>
 
-  <section class="card" id="images-section" hidden>
-    <h2>Copying images into secure storage</h2>
-    <p class="hint">Images from the old database are copied from Dropbox into the private bucket,
-      where only personnel and admins can see them. This starts on its own and only shows while
-      there's something to copy.</p>
-    <p id="images-pending"></p>
-    <p class="status" id="images-status" role="status"></p>
-    <ul class="problems" id="images-failed"></ul>
-    <div class="row">
-      <button class="btn btn-secondary" id="copy-images" type="button" hidden>Try again</button>
-    </div>
-  </section>
-
   <section class="card">
     <h2>Recent changes</h2>
     <table class="table" id="audit">
@@ -56,6 +43,5 @@
   </section>
 </main>
 <script type="module" src="js/pages/admin.js"></script>
-<script type="module" src="js/pages/admin-images.js"></script>
 </body>
 </html>
